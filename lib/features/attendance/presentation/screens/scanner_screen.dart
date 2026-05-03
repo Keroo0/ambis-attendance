@@ -47,6 +47,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
   Color _statusColor = AppColors.textPrimary;
   _LivenessState _livenessState = _LivenessState.waitingBlink;
   int _failCount = 0;
+  bool _handlingFailure = false;
 
   // enableClassification: true diperlukan untuk leftEyeOpenProbability.
   late final mlk.FaceDetector _detector = mlk.FaceDetector(
@@ -146,7 +147,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
         await _checkFace(faces, shot.path);
       }
     } catch (e) {
-      _setStatus('Gagal: $e', AppColors.error);
+      _handleFailure('Gagal: $e');
     } finally {
       if (shot != null) {
         try {
@@ -251,6 +252,8 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
   }
 
   void _handleFailure(String message) {
+    if (_handlingFailure) return;
+    _handlingFailure = true;
     _captureTimer?.cancel();
     _livenessTimeoutTimer?.cancel();
 
@@ -268,6 +271,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
       // Reset ke fase liveness dan coba lagi setelah 2 detik.
       Future.delayed(const Duration(seconds: 2), () {
         if (!mounted) return;
+        _handlingFailure = false; // reset guard before restarting
         setState(() => _livenessState = _LivenessState.waitingBlink);
         _startCaptureLoop();
       });
@@ -295,6 +299,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
               setState(() {
                 _failCount = 0;
                 _livenessState = _LivenessState.waitingBlink;
+                _handlingFailure = false;
               });
               _startCaptureLoop();
             },
@@ -305,8 +310,8 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
           ),
           TextButton(
             onPressed: () {
-              Navigator.pop(context); // tutup dialog
-              Navigator.pop(context); // kembali ke AttendanceScreen
+              context.pop(); // tutup dialog
+              context.pop(); // kembali ke AttendanceScreen
             },
             child: const Text(
               'Minta Validasi Guru',

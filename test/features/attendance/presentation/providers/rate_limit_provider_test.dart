@@ -24,17 +24,17 @@ void main() {
     });
 
     test('tidak terkunci setelah 4 kegagalan', () {
-      for (int i = 0; i < 4; i++) notifier.recordFailure();
+      for (int i = 0; i < 4; i++) { notifier.recordFailure(); }
       expect(notifier.lockSecondsLeft(), 0);
     });
 
     test('terkunci setelah 5 kegagalan', () {
-      for (int i = 0; i < 5; i++) notifier.recordFailure();
+      for (int i = 0; i < 5; i++) { notifier.recordFailure(); }
       expect(notifier.lockSecondsLeft(), greaterThan(0));
     });
 
     test('recordSuccess mereset failCount dan menghapus lockout', () {
-      for (int i = 0; i < 5; i++) notifier.recordFailure();
+      for (int i = 0; i < 5; i++) { notifier.recordFailure(); }
       notifier.recordSuccess();
       expect(notifier.lockSecondsLeft(), 0);
       expect(container.read(rateLimitProvider).failCount, 0);
