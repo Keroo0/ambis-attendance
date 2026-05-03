@@ -9,6 +9,7 @@ import '../../../../core/services/location_service.dart';
 import '../../../../shared/widgets/gradient_background.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../data/repositories/attendance_repository.dart';
+import '../providers/rate_limit_provider.dart';
 import 'scanner_screen.dart';
 
 class AttendanceScreen extends ConsumerStatefulWidget {
@@ -23,6 +24,33 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
 
   Future<void> _start(AttendanceKind kind) async {
     if (_busy) return;
+
+    // Cek rate limit sebelum memulai proses apapun.
+    final rl = ref.read(rateLimitProvider.notifier);
+    final cooldown = rl.cooldownSecondsLeft();
+    if (cooldown > 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Tunggu $cooldown detik sebelum absen lagi.'),
+          backgroundColor: AppColors.warning,
+        ),
+      );
+      return;
+    }
+    final locked = rl.lockSecondsLeft();
+    if (locked > 0) {
+      final mins = (locked / 60).ceil();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Terlalu banyak percobaan. Coba lagi dalam $mins menit.',
+          ),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
     setState(() => _busy = true);
 
     if (kIsWeb) {
@@ -53,13 +81,14 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
           '(maks 50 m).',
         );
       }
-      // Mock-GPS detection: schema field exists; real check is Phase 2.
-      // ignore: dead_code
-      if (false && LocationService.isMocked(pos)) {
-        throw const GeofenceException('Mock GPS terdeteksi.');
+      // Mock GPS detection (Phase 2).
+      if (LocationService.isMocked(pos)) {
+        throw const GeofenceException(
+          'Mock GPS terdeteksi. Nonaktifkan aplikasi pemalsuan lokasi.',
+        );
       }
 
-      // 3. Open scanner.
+      // 3. Buka scanner.
       if (!mounted) return;
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
@@ -174,8 +203,7 @@ class _ActionCard extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(
                         subtitle,
-                        style:
-                            Theme.of(context).textTheme.bodyMedium,
+                        style: Theme.of(context).textTheme.bodyMedium,
                       ),
                     ],
                   ),
