@@ -18,6 +18,9 @@ import '../../../../core/services/camera_service.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../enrollment/data/repositories/face_repository.dart';
 import '../../data/repositories/attendance_repository.dart';
+import '../providers/rate_limit_provider.dart';
+
+enum _LivenessState { waitingBlink, passed }
 
 class ScannerScreen extends ConsumerStatefulWidget {
   const ScannerScreen({
@@ -38,13 +41,17 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
   bool _initializing = true;
   String? _initError;
   Timer? _captureTimer;
+  Timer? _livenessTimeoutTimer;
   bool _busy = false;
-  String _status = 'Posisikan wajah ke tengah bingkai';
+  String _status = 'Mempersiapkan kamera...';
   Color _statusColor = AppColors.textPrimary;
+  _LivenessState _livenessState = _LivenessState.waitingBlink;
+  int _failCount = 0;
 
+  // enableClassification: true diperlukan untuk leftEyeOpenProbability.
   late final mlk.FaceDetector _detector = mlk.FaceDetector(
     options: mlk.FaceDetectorOptions(
-      enableClassification: false,
+      enableClassification: true,
       enableLandmarks: true,
       performanceMode: mlk.FaceDetectorMode.accurate,
     ),
@@ -102,9 +109,22 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
 
   void _startCaptureLoop() {
     _captureTimer?.cancel();
-    _captureTimer = Timer.periodic(const Duration(milliseconds: 1200), (_) {
-      _tick();
-    });
+    _livenessTimeoutTimer?.cancel();
+
+    if (_livenessState == _LivenessState.waitingBlink) {
+      _setStatus('Kedipkan mata Anda', AppColors.warning);
+      // Jika tidak ada kedipan dalam 8 detik, hitung sebagai kegagalan.
+      _livenessTimeoutTimer = Timer(
+        const Duration(seconds: 8),
+        () => _handleFailure('Kedipan tidak terdeteksi. Coba lagi.'),
+      );
+    }
+
+    // 400ms tick — cukup cepat untuk menangkap kedipan (durasi 150–400ms).
+    _captureTimer = Timer.periodic(
+      const Duration(milliseconds: 400),
+      (_) => _tick(),
+    );
   }
 
   Future<void> _tick() async {
@@ -119,26 +139,12 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
       final faces = await _detector.processImage(
         mlk.InputImage.fromFilePath(shot.path),
       );
-      if (faces.isEmpty) {
-        _setStatus('Wajah tidak terdeteksi', AppColors.warning);
-        return;
-      }
-      if (faces.length > 1) {
-        _setStatus('Pastikan hanya satu wajah', AppColors.warning);
-        return;
-      }
-      final face = faces.first;
-      if (!_isFrontal(face)) {
-        _setStatus('Hadap lurus ke kamera', AppColors.warning);
-        return;
-      }
 
-      final faceRepo = ref.read(faceRepositoryProvider);
-      final embedding = await faceRepo.extractEmbeddingFromFile(
-        File(shot.path),
-        faceBox: _expand(face.boundingBox, 1.2),
-      );
-      await _commit(embedding);
+      if (_livenessState == _LivenessState.waitingBlink) {
+        _checkBlink(faces);
+      } else {
+        await _checkFace(faces, shot.path);
+      }
     } catch (e) {
       _setStatus('Gagal: $e', AppColors.error);
     } finally {
@@ -149,6 +155,43 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
       }
       _busy = false;
     }
+  }
+
+  /// Deteksi kedip: kedua mata tertutup (probabilitas < 0.3).
+  void _checkBlink(List<mlk.Face> faces) {
+    if (faces.length != 1) return;
+    final face = faces.first;
+    final left = face.leftEyeOpenProbability;
+    final right = face.rightEyeOpenProbability;
+    if (left != null && right != null && left < 0.3 && right < 0.3) {
+      _livenessTimeoutTimer?.cancel();
+      setState(() => _livenessState = _LivenessState.passed);
+      _setStatus('Liveness OK, mencocokkan wajah...', AppColors.primary);
+    }
+  }
+
+  /// Pencocokan wajah — dijalankan hanya setelah liveness lolos.
+  Future<void> _checkFace(List<mlk.Face> faces, String imagePath) async {
+    if (faces.isEmpty) {
+      _setStatus('Wajah tidak terdeteksi', AppColors.warning);
+      return;
+    }
+    if (faces.length > 1) {
+      _setStatus('Pastikan hanya satu wajah', AppColors.warning);
+      return;
+    }
+    final face = faces.first;
+    if (!_isFrontal(face)) {
+      _setStatus('Hadap lurus ke kamera', AppColors.warning);
+      return;
+    }
+
+    final faceRepo = ref.read(faceRepositoryProvider);
+    final embedding = await faceRepo.extractEmbeddingFromFile(
+      File(imagePath),
+      faceBox: _expand(face.boundingBox, 1.2),
+    );
+    await _commit(embedding);
   }
 
   bool _isFrontal(mlk.Face f) {
@@ -173,6 +216,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
     final user = ref.read(authProvider).valueOrNull;
     if (user == null) return;
     _captureTimer?.cancel();
+    _livenessTimeoutTimer?.cancel();
 
     setState(() {
       _status = 'Menyimpan...';
@@ -186,6 +230,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
             capturedEmbedding: embedding,
             position: widget.position,
           );
+      ref.read(rateLimitProvider.notifier).recordSuccess();
       if (!mounted) return;
       setState(() {
         _status = widget.kind == AttendanceKind.checkIn
@@ -198,24 +243,79 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
       context.go('/dashboard');
     } on AppException catch (e) {
       if (!mounted) return;
-      setState(() {
-        _status = e.message;
-        _statusColor = AppColors.error;
-      });
-      // Allow user to retry after a short pause.
-      await Future<void>.delayed(const Duration(seconds: 2));
-      if (!mounted) return;
-      _startCaptureLoop();
+      _handleFailure(e.message);
     } catch (e) {
       if (!mounted) return;
-      setState(() {
-        _status = 'Gagal: $e';
-        _statusColor = AppColors.error;
-      });
-      await Future<void>.delayed(const Duration(seconds: 2));
-      if (!mounted) return;
-      _startCaptureLoop();
+      _handleFailure('Gagal: $e');
     }
+  }
+
+  void _handleFailure(String message) {
+    _captureTimer?.cancel();
+    _livenessTimeoutTimer?.cancel();
+
+    ref.read(rateLimitProvider.notifier).recordFailure();
+    _failCount++;
+
+    _setStatus(message, AppColors.error);
+
+    if (_failCount >= 3) {
+      // Tampilkan dialog setelah frame selesai dirender.
+      Future.microtask(() {
+        if (mounted) _showFallbackDialog();
+      });
+    } else {
+      // Reset ke fase liveness dan coba lagi setelah 2 detik.
+      Future.delayed(const Duration(seconds: 2), () {
+        if (!mounted) return;
+        setState(() => _livenessState = _LivenessState.waitingBlink);
+        _startCaptureLoop();
+      });
+    }
+  }
+
+  void _showFallbackDialog() {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text(
+          'Verifikasi Gagal',
+          style: TextStyle(color: AppColors.textPrimary),
+        ),
+        content: const Text(
+          'Silakan hubungi guru untuk validasi manual kehadiran Anda.',
+          style: TextStyle(color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              setState(() {
+                _failCount = 0;
+                _livenessState = _LivenessState.waitingBlink;
+              });
+              _startCaptureLoop();
+            },
+            child: const Text(
+              'Coba Lagi',
+              style: TextStyle(color: AppColors.secondary),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context); // tutup dialog
+              Navigator.pop(context); // kembali ke AttendanceScreen
+            },
+            child: const Text(
+              'Minta Validasi Guru',
+              style: TextStyle(color: AppColors.accent),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _setStatus(String s, Color c) {
@@ -229,6 +329,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
   @override
   void dispose() {
     _captureTimer?.cancel();
+    _livenessTimeoutTimer?.cancel();
     _controller?.dispose();
     _detector.close();
     super.dispose();
