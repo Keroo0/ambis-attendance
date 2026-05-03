@@ -1,0 +1,82 @@
+name: ambis_attendance
+description: Smart Attendance System for SMAN 07
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+
+  # State Management
+  flutter_riverpod: ^2.5.1
+  riverpod_annotation: ^2.3.5
+
+  # Routing
+  go_router: ^14.0.0
+
+  # Database
+  drift: ^2.16.0
+  sqlite3_flutter_libs: ^0.5.20
+  path_provider: ^2.1.2
+  path: ^1.8.3
+
+  # Backend
+  supabase_flutter: ^2.3.4
+
+  # Secure Storage
+  flutter_secure_storage: ^9.0.0
+
+  # Camera & Image
+  camera: ^0.10.5+9
+  image: ^4.1.7
+  flutter_image_compress: ^2.1.0
+
+  # Location
+  geolocator: ^11.0.0
+  permission_handler: ^11.3.0
+
+  # AI/ML
+  # NOTE: tflite_flutter 0.10.x fails to compile on Dart >= 3.11
+  # (UnmodifiableUint8ListView was removed from dart:typed_data). Bumped
+  # to the latest line that actually builds; google_ml_kit follows.
+  tflite_flutter: ^0.11.0
+  google_ml_kit: ^0.20.0
+
+  # UI
+  fl_chart: ^0.66.2
+  intl: ^0.19.0
+  toastification: ^2.1.0
+
+  # HTTP
+  dio: ^5.4.1
+
+  # Utils
+  uuid: ^4.3.3
+  logger: ^2.0.2+1
+  freezed_annotation: ^2.4.1
+  json_annotation: ^4.8.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+  # Code generation
+  build_runner: ^2.4.8
+  drift_dev: ^2.16.0
+  riverpod_generator: ^2.3.11
+  freezed: ^2.4.7
+  json_serializable: ^6.7.1
+  custom_lint: ^0.6.2
+  riverpod_lint: ^2.3.10
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/models/
+    - assets/images/
