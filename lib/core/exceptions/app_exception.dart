@@ -35,3 +35,11 @@ class ModelLoadException extends AppException {
 class SyncException extends AppException {
   const SyncException(super.message);
 }
+
+class LivenessException extends AppException {
+  const LivenessException(super.message);
+}
+
+class RateLimitException extends AppException {
+  const RateLimitException(super.message);
+}
