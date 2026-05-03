@@ -26,7 +26,7 @@ class RateLimitState {
 
 class RateLimitNotifier extends Notifier<RateLimitState> {
   static const int _kCooldownSeconds = 30;
-  static const int _kLockoutSeconds = 5 * 60;
+  static const Duration _kLockoutDuration = Duration(minutes: 5);
 
   @override
   RateLimitState build() => const RateLimitState();
@@ -43,7 +43,7 @@ class RateLimitNotifier extends Notifier<RateLimitState> {
   int lockSecondsLeft() {
     final until = state.lockedUntil;
     if (until == null) return 0;
-    return until.difference(DateTime.now()).inSeconds.clamp(0, _kLockoutSeconds);
+    return until.difference(DateTime.now()).inSeconds.clamp(0, _kLockoutDuration.inSeconds);
   }
 
   void recordSuccess() {
@@ -56,7 +56,7 @@ class RateLimitNotifier extends Notifier<RateLimitState> {
       lastSuccess: state.lastSuccess,
       failCount: newCount,
       lockedUntil: newCount >= 5
-          ? DateTime.now().add(const Duration(seconds: _kLockoutSeconds))
+          ? DateTime.now().add(_kLockoutDuration)
           : state.lockedUntil,
     );
   }
