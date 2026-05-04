@@ -91,7 +91,7 @@ class AttendanceHistoryRepository {
         checkInTime = attendanceRow.timeIn;
         checkOutTime = attendanceRow.timeOut;
         // Compare time strings lexicographically — works for HH:mm format.
-        if (checkInTime != null && checkInTime.compareTo('07:30') <= 0) {
+        if (checkInTime == null || checkInTime.compareTo('07:30') <= 0) {
           status = AttendanceStatus.hadir;
         } else {
           status = AttendanceStatus.terlambat;
