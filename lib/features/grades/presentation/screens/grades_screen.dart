@@ -5,7 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/colors.dart';
 import '../../../../core/constants/spacing.dart';
 import '../../../../shared/widgets/gradient_background.dart';
-import '../../data/dummy_grades.dart';
+import '../../data/repositories/grade_repository.dart';
+import '../providers/grades_provider.dart';
 
 class GradesScreen extends ConsumerWidget {
   const GradesScreen({super.key});
@@ -18,10 +19,7 @@ class GradesScreen extends ConsumerWidget {
         appBar: AppBar(
           title: const Text('Nilai Akademik'),
           bottom: const TabBar(
-            tabs: [
-              Tab(text: 'Semester 1'),
-              Tab(text: 'Semester 2'),
-            ],
+            tabs: [Tab(text: 'Semester 1'), Tab(text: 'Semester 2')],
             indicatorColor: AppColors.accent,
             labelColor: AppColors.accent,
             unselectedLabelColor: AppColors.textSecondary,
@@ -31,14 +29,8 @@ class GradesScreen extends ConsumerWidget {
         body: const GradientBackground(
           child: TabBarView(
             children: [
-              _GradesListView(
-                grades: kDummyGradesSem1,
-                summary: kDummySummarySem1,
-              ),
-              _GradesListView(
-                grades: kDummyGradesSem2,
-                summary: kDummySummarySem2,
-              ),
+              _GradesTab(semester: 1),
+              _GradesTab(semester: 2),
             ],
           ),
         ),
@@ -47,11 +39,57 @@ class GradesScreen extends ConsumerWidget {
   }
 }
 
+class _GradesTab extends ConsumerWidget {
+  const _GradesTab({required this.semester});
+
+  final int semester;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(gradesProvider(semester));
+    return async.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(Spacing.md),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                'Gagal memuat nilai: $e',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: AppColors.error),
+              ),
+              const SizedBox(height: Spacing.sm),
+              ElevatedButton(
+                onPressed: () => ref.invalidate(gradesProvider(semester)),
+                child: const Text('Coba Lagi'),
+              ),
+            ],
+          ),
+        ),
+      ),
+      data: (result) {
+        final (grades, summary) = result;
+        if (grades.isEmpty) {
+          return const Center(
+            child: Text(
+              'Nilai belum tersedia.',
+              style: TextStyle(color: AppColors.textHint),
+            ),
+          );
+        }
+        return _GradesListView(grades: grades, summary: summary);
+      },
+    );
+  }
+}
+
 class _GradesListView extends StatelessWidget {
   const _GradesListView({required this.grades, required this.summary});
 
-  final List<DummySubjectGrade> grades;
-  final DummySummary summary;
+  final List<SubjectGrade> grades;
+  final GradeSummary summary;
 
   @override
   Widget build(BuildContext context) {
@@ -62,10 +100,7 @@ class _GradesListView extends StatelessWidget {
         Expanded(
           child: ListView.separated(
             padding: const EdgeInsets.fromLTRB(
-              Spacing.md,
-              Spacing.sm,
-              Spacing.md,
-              Spacing.lg,
+              Spacing.md, Spacing.sm, Spacing.md, Spacing.lg,
             ),
             itemCount: grades.length,
             separatorBuilder: (_, __) => const SizedBox(height: Spacing.xs),
@@ -80,9 +115,8 @@ class _GradesListView extends StatelessWidget {
 class _GradesChart extends StatelessWidget {
   const _GradesChart({required this.grades});
 
-  final List<DummySubjectGrade> grades;
+  final List<SubjectGrade> grades;
 
-  // Abbreviate subject names for the X-axis labels
   String _abbr(String subject) {
     const map = {
       'Matematika': 'MTK',
@@ -227,7 +261,7 @@ class _GradesChart extends StatelessWidget {
 class _SummaryCard extends StatelessWidget {
   const _SummaryCard({required this.summary});
 
-  final DummySummary summary;
+  final GradeSummary summary;
 
   @override
   Widget build(BuildContext context) {
@@ -241,12 +275,9 @@ class _SummaryCard extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // accent strip
           Container(
             height: 4,
-            decoration: const BoxDecoration(
-              gradient: AppColors.brandGradient,
-            ),
+            decoration: const BoxDecoration(gradient: AppColors.brandGradient),
           ),
           Padding(
             padding: const EdgeInsets.all(Spacing.md),
@@ -299,13 +330,8 @@ class _SummaryColumn extends StatelessWidget {
     return Expanded(
       child: Column(
         children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 11,
-            ),
-          ),
+          Text(label,
+              style: const TextStyle(color: AppColors.textSecondary, fontSize: 11)),
           const SizedBox(height: 4),
           Text(
             value,
@@ -339,7 +365,7 @@ class _VerticalDivider extends StatelessWidget {
 class _SubjectGradeCard extends StatelessWidget {
   const _SubjectGradeCard({required this.grade});
 
-  final DummySubjectGrade grade;
+  final SubjectGrade grade;
 
   @override
   Widget build(BuildContext context) {
@@ -354,9 +380,10 @@ class _SubjectGradeCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     grade.subject,
-                    style: Theme.of(context).textTheme.titleMedium!.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleMedium!
+                        .copyWith(fontWeight: FontWeight.w600),
                   ),
                 ),
                 Text(
@@ -402,13 +429,8 @@ class _ScoreBadge extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 10,
-            ),
-          ),
+          Text(label,
+              style: const TextStyle(color: AppColors.textSecondary, fontSize: 10)),
           const SizedBox(height: 2),
           Text(
             score.toStringAsFixed(0),
