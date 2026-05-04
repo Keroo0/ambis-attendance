@@ -43,3 +43,7 @@ class LivenessException extends AppException {
 class RateLimitException extends AppException {
   const RateLimitException(super.message);
 }
+
+class LeaveException extends AppException {
+  const LeaveException(super.message);
+}
