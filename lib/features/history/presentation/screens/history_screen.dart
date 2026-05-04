@@ -1,32 +1,29 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/colors.dart';
 import '../../../../core/constants/spacing.dart';
 import '../../../../shared/widgets/gradient_background.dart';
-import '../../data/dummy_history.dart';
+import '../../data/repositories/attendance_history_repository.dart';
+import '../providers/history_provider.dart';
 
-class HistoryScreen extends StatefulWidget {
+class HistoryScreen extends ConsumerStatefulWidget {
   const HistoryScreen({super.key});
 
   @override
-  State<HistoryScreen> createState() => _HistoryScreenState();
+  ConsumerState<HistoryScreen> createState() => _HistoryScreenState();
 }
 
-class _HistoryScreenState extends State<HistoryScreen> {
+class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   late DateTime _displayMonth;
   DateTime? _selectedDate;
-  late Map<DateTime, DummyAttendanceRecord> _recordMap;
 
   @override
   void initState() {
     super.initState();
     final now = DateTime.now();
     _displayMonth = DateTime(now.year, now.month);
-    _recordMap = {
-      for (final r in kDummyAttendanceRecords)
-        DateTime(r.date.year, r.date.month, r.date.day): r,
-    };
   }
 
   bool get _canGoNext {
@@ -48,21 +45,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
     });
   }
 
-  List<DummyAttendanceRecord> get _monthRecords => kDummyAttendanceRecords
-      .where((r) =>
-          r.date.year == _displayMonth.year &&
-          r.date.month == _displayMonth.month)
-      .toList();
-
   @override
   Widget build(BuildContext context) {
-    final records = _monthRecords;
-    final hadir = records.where((r) => r.status == AttendanceStatus.hadir).length;
-    final terlambat = records.where((r) => r.status == AttendanceStatus.terlambat).length;
-    final izin = records.where((r) => r.status == AttendanceStatus.izin).length;
-    final alfa = records.where((r) => r.status == AttendanceStatus.alfa).length;
-
-    final selectedRecord = _selectedDate != null ? _recordMap[_selectedDate] : null;
+    final async = ref.watch(historyProvider((_displayMonth.year, _displayMonth.month)));
 
     return Scaffold(
       appBar: AppBar(title: const Text('Riwayat Kehadiran')),
@@ -74,31 +59,77 @@ class _HistoryScreenState extends State<HistoryScreen> {
         onPressed: () => context.push('/leave'),
       ),
       body: GradientBackground(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(
-              Spacing.md, Spacing.md, Spacing.md, 100),
-          children: [
-            _CalendarCard(
-              displayMonth: _displayMonth,
-              recordMap: _recordMap,
-              selectedDate: _selectedDate,
-              canGoNext: _canGoNext,
-              onDateTap: (d) => setState(() => _selectedDate = d),
-              onPrevMonth: _prevMonth,
-              onNextMonth: _nextMonth,
+        child: async.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Center(
+            child: Padding(
+              padding: const EdgeInsets.all(Spacing.md),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Gagal memuat riwayat: $e',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: AppColors.error),
+                  ),
+                  const SizedBox(height: Spacing.sm),
+                  ElevatedButton(
+                    onPressed: () => ref.invalidate(
+                      historyProvider((_displayMonth.year, _displayMonth.month)),
+                    ),
+                    child: const Text('Coba Lagi'),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: Spacing.sm),
-            _SummaryRow(
-                hadir: hadir, terlambat: terlambat, izin: izin, alfa: alfa),
-            if (_selectedDate != null) ...[
-              const SizedBox(height: Spacing.sm),
-              _DayDetailCard(date: _selectedDate!, record: selectedRecord),
-            ],
-            const SizedBox(height: Spacing.sm),
-            const _LegendRow(),
-            const SizedBox(height: Spacing.sm),
-            _RecentList(records: records.reversed.toList()),
-          ],
+          ),
+          data: (records) {
+            final recordMap = {
+              for (final r in records)
+                DateTime(r.date.year, r.date.month, r.date.day): r,
+            };
+            final hadir =
+                records.where((r) => r.status == AttendanceStatus.hadir).length;
+            final terlambat = records
+                .where((r) => r.status == AttendanceStatus.terlambat)
+                .length;
+            final izin =
+                records.where((r) => r.status == AttendanceStatus.izin).length;
+            final alfa =
+                records.where((r) => r.status == AttendanceStatus.alfa).length;
+            final selectedRecord =
+                _selectedDate != null ? recordMap[_selectedDate] : null;
+
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(
+                  Spacing.md, Spacing.md, Spacing.md, 100),
+              children: [
+                _CalendarCard(
+                  displayMonth: _displayMonth,
+                  recordMap: recordMap,
+                  selectedDate: _selectedDate,
+                  canGoNext: _canGoNext,
+                  onDateTap: (d) => setState(() => _selectedDate = d),
+                  onPrevMonth: _prevMonth,
+                  onNextMonth: _nextMonth,
+                ),
+                const SizedBox(height: Spacing.sm),
+                _SummaryRow(
+                    hadir: hadir,
+                    terlambat: terlambat,
+                    izin: izin,
+                    alfa: alfa),
+                if (_selectedDate != null) ...[
+                  const SizedBox(height: Spacing.sm),
+                  _DayDetailCard(date: _selectedDate!, record: selectedRecord),
+                ],
+                const SizedBox(height: Spacing.sm),
+                const _LegendRow(),
+                const SizedBox(height: Spacing.sm),
+                _RecentList(records: records.reversed.toList()),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -119,7 +150,7 @@ class _CalendarCard extends StatelessWidget {
   });
 
   final DateTime displayMonth;
-  final Map<DateTime, DummyAttendanceRecord> recordMap;
+  final Map<DateTime, AttendanceDay> recordMap;
   final DateTime? selectedDate;
   final bool canGoNext;
   final ValueChanged<DateTime> onDateTap;
@@ -136,7 +167,6 @@ class _CalendarCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final daysInMonth =
         DateUtils.getDaysInMonth(displayMonth.year, displayMonth.month);
-    // weekday: 1=Mon … 7=Sun → offset = weekday - 1
     final offset =
         DateTime(displayMonth.year, displayMonth.month, 1).weekday - 1;
     final now = DateTime.now();
@@ -149,7 +179,6 @@ class _CalendarCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          // ── month navigation ──────────────────────────────────────────
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -176,7 +205,6 @@ class _CalendarCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: Spacing.xs),
-          // ── day-of-week headers ───────────────────────────────────────
           Row(
             children: _dayLabels
                 .map((d) => Expanded(
@@ -194,7 +222,6 @@ class _CalendarCard extends StatelessWidget {
                 .toList(),
           ),
           const SizedBox(height: 6),
-          // ── calendar grid ─────────────────────────────────────────────
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -241,7 +268,7 @@ class _CalendarCell extends StatelessWidget {
   });
 
   final int day;
-  final DummyAttendanceRecord? record;
+  final AttendanceDay? record;
   final bool isSelected;
   final bool isToday;
   final VoidCallback onTap;
@@ -271,7 +298,7 @@ class _CalendarCell extends StatelessWidget {
           color: isSelected
               ? AppColors.accent
               : record != null
-                  ? _statusColor.withAlpha(51) // 20% fill
+                  ? _statusColor.withAlpha(51)
                   : Colors.transparent,
           border: isToday && !isSelected
               ? Border.all(color: AppColors.accent, width: 1.5)
@@ -357,7 +384,7 @@ class _SummaryChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 8),
         decoration: BoxDecoration(
-          color: color.withAlpha(31), // ~12%
+          color: color.withAlpha(31),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: color.withAlpha(77), width: 1),
         ),
@@ -389,7 +416,7 @@ class _DayDetailCard extends StatelessWidget {
   const _DayDetailCard({required this.date, required this.record});
 
   final DateTime date;
-  final DummyAttendanceRecord? record;
+  final AttendanceDay? record;
 
   static const _monthNames = [
     'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
@@ -543,7 +570,7 @@ class _LegendDot extends StatelessWidget {
 class _RecentList extends StatelessWidget {
   const _RecentList({required this.records});
 
-  final List<DummyAttendanceRecord> records;
+  final List<AttendanceDay> records;
 
   static const _monthNames = [
     'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
