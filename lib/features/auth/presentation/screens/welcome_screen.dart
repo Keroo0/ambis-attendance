@@ -87,7 +87,7 @@ class WelcomeScreen extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
-                  onPressed: () => _showParentLoginSheet(context),
+                  onPressed: () => context.go('/parent-login'),
                   icon: const Icon(Icons.people_outline_rounded, size: 18),
                   label: const Text(
                     'Login sebagai Orang Tua',
@@ -184,7 +184,7 @@ class WelcomeScreen extends StatelessWidget {
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton.icon(
-                        onPressed: () => context.go('/enrollment'),
+                        onPressed: () => context.go('/nisn-verify'),
                         icon: const Icon(Icons.how_to_reg_rounded, size: 16),
                         label: const Text(
                           'Daftar Sekarang',
@@ -216,63 +216,6 @@ class WelcomeScreen extends StatelessWidget {
               const SizedBox(height: Spacing.md),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  void _showParentLoginSheet(BuildContext context) {
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (_) => Padding(
-        padding: const EdgeInsets.all(Spacing.md),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40, height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: Spacing.md),
-            const Icon(Icons.people_rounded, size: 48, color: AppColors.primary),
-            const SizedBox(height: Spacing.sm),
-            const Text(
-              'Login Orang Tua',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.background),
-            ),
-            const SizedBox(height: Spacing.xs),
-            const Text(
-              'Masukkan ID akun orang tua yang didaftarkan oleh sekolah.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Color(0xFF6B7280), fontSize: 13, height: 1.4),
-            ),
-            const SizedBox(height: Spacing.md),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  context.go('/login');
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.background,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  elevation: 0,
-                ),
-                child: const Text('Masuk ke Akun Orang Tua', style: TextStyle(fontWeight: FontWeight.w700)),
-              ),
-            ),
-            const SizedBox(height: Spacing.sm),
-          ],
         ),
       ),
     );

@@ -5,10 +5,12 @@ import 'package:go_router/go_router.dart';
 import '../../features/attendance/presentation/screens/attendance_screen.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
+import '../../features/auth/presentation/screens/parent_login_screen.dart';
 import '../../features/auth/presentation/screens/splash_screen.dart';
 import '../../features/auth/presentation/screens/welcome_screen.dart';
 import '../../features/dashboard/presentation/screens/dashboard_screen.dart';
 import '../../features/enrollment/presentation/screens/enrollment_screen.dart';
+import '../../features/enrollment/presentation/screens/nisn_verification_screen.dart';
 import '../../features/grades/presentation/screens/grades_screen.dart';
 import '../../features/history/presentation/screens/history_screen.dart';
 import '../../features/leave_request/presentation/screens/leave_request_screen.dart';
@@ -66,6 +68,14 @@ GoRouter buildRouter(Ref ref) {
       GoRoute(
         path: '/login',
         builder: (_, __) => const LoginScreen(),
+      ),
+      GoRoute(
+        path: '/parent-login',
+        builder: (_, __) => const ParentLoginScreen(),
+      ),
+      GoRoute(
+        path: '/nisn-verify',
+        builder: (_, __) => const NisnVerificationScreen(),
       ),
       GoRoute(
         path: '/enrollment',
@@ -137,13 +147,14 @@ GoRouter buildRouter(Ref ref) {
       final loggedIn = user != null;
 
       if (!loggedIn) {
-        const guestRoutes = {'/welcome', '/login'};
+        const guestRoutes = {'/welcome', '/login', '/parent-login', '/nisn-verify'};
         return guestRoutes.contains(loc) ? null : '/welcome';
       }
 
       // Logged in. Now check enrollment for siswa role only.
       if (user.role != 'siswa') {
-        if (loc == '/login' || loc == '/splash' || loc == '/welcome') return '/dashboard';
+        const authOnlyRoutes = {'/login', '/splash', '/welcome', '/parent-login', '/nisn-verify'};
+        if (authOnlyRoutes.contains(loc)) return '/dashboard';
         return null;
       }
 
@@ -158,7 +169,12 @@ GoRouter buildRouter(Ref ref) {
       if (!enrolled && loc != '/enrollment') {
         return '/enrollment';
       }
-      if (enrolled && (loc == '/login' || loc == '/splash' || loc == '/welcome')) {
+      if (enrolled &&
+          (loc == '/login' ||
+              loc == '/splash' ||
+              loc == '/welcome' ||
+              loc == '/parent-login' ||
+              loc == '/nisn-verify')) {
         return '/dashboard';
       }
       return null;
