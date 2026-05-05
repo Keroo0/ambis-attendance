@@ -2,12 +2,10 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../../../core/constants/colors.dart';
-import '../../../../core/constants/spacing.dart';
 import '../../../../core/database/app_database.dart';
-import '../../../../shared/widgets/gradient_background.dart';
 import '../providers/leave_provider.dart';
 
 class LeaveRequestScreen extends ConsumerStatefulWidget {
@@ -18,20 +16,29 @@ class LeaveRequestScreen extends ConsumerStatefulWidget {
 }
 
 class _LeaveRequestScreenState extends ConsumerState<LeaveRequestScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final _keteranganController = TextEditingController();
+  final _reasonCtrl = TextEditingController();
   final _picker = ImagePicker();
 
-  String? _jenisIzin;
+  String _permitType = 'Sakit';
   DateTime? _startDate;
   DateTime? _endDate;
   File? _imageFile;
   bool _submitting = false;
 
+  static const _monthNames = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+    'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des',
+  ];
+
   @override
   void dispose() {
-    _keteranganController.dispose();
+    _reasonCtrl.dispose();
     super.dispose();
+  }
+
+  String _formatDate(DateTime? d) {
+    if (d == null) return 'Pilih tanggal';
+    return '${d.day} ${_monthNames[d.month - 1]} ${d.year}';
   }
 
   Future<void> _pickDate({required bool isStart}) async {
@@ -44,10 +51,9 @@ class _LeaveRequestScreenState extends ConsumerState<LeaveRequestScreen> {
       lastDate: DateTime(now.year + 1),
       builder: (ctx, child) => Theme(
         data: Theme.of(ctx).copyWith(
-          colorScheme: const ColorScheme.dark(
-            primary: AppColors.accent,
-            onPrimary: AppColors.background,
-            surface: AppColors.surface,
+          colorScheme: const ColorScheme.light(
+            primary: Color(0xFF006A63),
+            onPrimary: Colors.white,
           ),
         ),
         child: child!,
@@ -67,15 +73,11 @@ class _LeaveRequestScreenState extends ConsumerState<LeaveRequestScreen> {
   Future<void> _pickImage() async {
     final xfile = await _picker.pickImage(source: ImageSource.gallery);
     if (xfile == null) return;
-
     final path = xfile.path.toLowerCase();
     if (!path.endsWith('.jpg') && !path.endsWith('.jpeg')) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Format file harus JPG/JPEG.'),
-          backgroundColor: AppColors.error,
-        ),
+        const SnackBar(content: Text('Format file harus JPG/JPEG.')),
       );
       return;
     }
@@ -83,22 +85,21 @@ class _LeaveRequestScreenState extends ConsumerState<LeaveRequestScreen> {
   }
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
     if (_startDate == null || _endDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Pilih tanggal izin terlebih dahulu.'),
-          backgroundColor: AppColors.error,
-        ),
+        const SnackBar(content: Text('Pilih tanggal izin terlebih dahulu.')),
+      );
+      return;
+    }
+    if (_reasonCtrl.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Keterangan wajib diisi.')),
       );
       return;
     }
     if (_imageFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Foto bukti wajib diupload.'),
-          backgroundColor: AppColors.error,
-        ),
+        const SnackBar(content: Text('Foto bukti wajib diupload.')),
       );
       return;
     }
@@ -106,8 +107,8 @@ class _LeaveRequestScreenState extends ConsumerState<LeaveRequestScreen> {
     setState(() => _submitting = true);
     try {
       await ref.read(leaveProvider.notifier).submit(
-            uiType: _jenisIzin!,
-            reason: _keteranganController.text.trim(),
+            uiType: _permitType,
+            reason: _reasonCtrl.text.trim(),
             dateFrom: _startDate!,
             dateTo: _endDate!,
             imageFile: _imageFile!,
@@ -118,36 +119,31 @@ class _LeaveRequestScreenState extends ConsumerState<LeaveRequestScreen> {
       if (providerState is AsyncError) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Gagal: ${(providerState as AsyncError).error}'),
-            backgroundColor: AppColors.error,
-          ),
+              content:
+                  Text('Gagal: ${(providerState as AsyncError).error}')),
         );
         return;
       }
 
-      _formKey.currentState?.reset();
       setState(() {
-        _jenisIzin = null;
+        _permitType = 'Sakit';
         _startDate = null;
         _endDate = null;
         _imageFile = null;
-        _keteranganController.clear();
+        _reasonCtrl.clear();
       });
+      if (!mounted) return;
       showDialog<void>(
         context: context,
         builder: (_) => AlertDialog(
-          backgroundColor: AppColors.surface,
-          title: const Text('Pengajuan Terkirim',
-              style: TextStyle(color: AppColors.textPrimary)),
+          title: const Text('Pengajuan Terkirim'),
           content: const Text(
-            'Pengajuan izin Anda sedang menunggu persetujuan wali kelas.',
-            style: TextStyle(color: AppColors.textSecondary),
-          ),
+              'Pengajuan izin Anda sedang menunggu persetujuan wali kelas.'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child:
-                  const Text('OK', style: TextStyle(color: AppColors.accent)),
+              child: const Text('OK',
+                  style: TextStyle(color: Color(0xFF006A63))),
             ),
           ],
         ),
@@ -162,158 +158,403 @@ class _LeaveRequestScreenState extends ConsumerState<LeaveRequestScreen> {
     final leavesAsync = ref.watch(leaveProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Pengajuan Izin')),
-      body: GradientBackground(
-        child: Stack(
+      backgroundColor: const Color(0xFFF7F9FB),
+      body: SafeArea(
+        child: Column(
           children: [
-            ListView(
-              padding: const EdgeInsets.all(Spacing.md),
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(Spacing.md),
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(Spacing.borderRadius),
+            // ── Top bar ───────────────────────────────────────────────
+            Container(
+              height: 64,
+              color: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Row(
+                children: [
+                  IconButton(
+                    onPressed: () => context.pop(),
+                    icon: const Icon(Icons.arrow_back,
+                        color: Color(0xFF002B5B)),
                   ),
-                  child: Form(
-                    key: _formKey,
+                  const Expanded(
+                    child: Text(
+                      'SMAN 07 Tangerang',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF002B5B),
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () {},
+                    icon: const Icon(Icons.notifications_outlined,
+                        color: Color(0xFF002B5B)),
+                  ),
+                ],
+              ),
+            ),
+
+            // ── Scrollable body ───────────────────────────────────────
+            Expanded(
+              child: Stack(
+                children: [
+                  SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Pengajuan Baru',
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleLarge
-                              ?.copyWith(fontWeight: FontWeight.w700),
-                        ),
-                        const SizedBox(height: Spacing.md),
+                        const SizedBox(height: 20),
 
-                        DropdownButtonFormField<String>(
-                          initialValue: _jenisIzin,
-                          decoration: const InputDecoration(
-                            labelText: 'Jenis Izin',
-                            prefixIcon: Icon(Icons.category_outlined,
-                                color: AppColors.textHint, size: 20),
-                          ),
-                          dropdownColor: AppColors.surfaceAlt,
-                          items: const [
-                            DropdownMenuItem(
-                                value: 'Sakit', child: Text('Sakit')),
-                            DropdownMenuItem(
-                                value: 'Izin Keluarga',
-                                child: Text('Izin Keluarga')),
-                            DropdownMenuItem(
-                                value: 'Keperluan Lain',
-                                child: Text('Keperluan Lain')),
-                          ],
-                          onChanged: (v) => setState(() => _jenisIzin = v),
-                          validator: (v) =>
-                              v == null ? 'Pilih jenis izin' : null,
-                        ),
-                        const SizedBox(height: Spacing.sm),
-
-                        _DateField(
-                          label: 'Tanggal Mulai',
-                          date: _startDate,
-                          onTap: () => _pickDate(isStart: true),
-                        ),
-                        const SizedBox(height: Spacing.sm),
-
-                        _DateField(
-                          label: 'Tanggal Selesai',
-                          date: _endDate,
-                          onTap: () => _pickDate(isStart: false),
-                        ),
-                        const SizedBox(height: Spacing.sm),
-
-                        TextFormField(
-                          controller: _keteranganController,
-                          decoration: const InputDecoration(
-                            labelText: 'Keterangan',
-                            hintText:
-                                'Jelaskan alasan izin secara singkat...',
-                            alignLabelWithHint: true,
-                          ),
-                          maxLines: 3,
-                          validator: (v) =>
-                              (v == null || v.trim().isEmpty)
-                                  ? 'Keterangan wajib diisi'
-                                  : null,
-                        ),
-                        const SizedBox(height: Spacing.sm),
-
-                        _UploadButton(
-                          fileName: _imageFile?.path.split('/').last,
-                          onTap: _submitting ? null : _pickImage,
-                        ),
-                        const SizedBox(height: 6),
+                        // Page title
                         const Text(
-                          'Format JPG/JPEG, ukuran maks 1 MB.',
+                          'Submit Permit',
                           style: TextStyle(
-                              color: AppColors.textHint, fontSize: 11),
+                            fontSize: 24,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF001736),
+                          ),
                         ),
-                        const SizedBox(height: Spacing.md),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Isi formulir di bawah untuk mengajukan izin kehadiran.',
+                          style: TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFF43474F),
+                              height: 1.5),
+                        ),
+                        const SizedBox(height: 20),
 
-                        ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.accent,
-                            foregroundColor: AppColors.background,
-                            minimumSize: const Size.fromHeight(48),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(
-                                  Spacing.borderRadius),
+                        // ── Form card ─────────────────────────────────
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border(
+                              left: const BorderSide(
+                                  color: Color(0xFF47FBEB), width: 4),
+                              top: BorderSide(
+                                  color: const Color(0xFFC4C6D0)
+                                      .withAlpha(80)),
+                              right: BorderSide(
+                                  color: const Color(0xFFC4C6D0)
+                                      .withAlpha(80)),
+                              bottom: BorderSide(
+                                  color: const Color(0xFFC4C6D0)
+                                      .withAlpha(80)),
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withAlpha(13),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Permit type
+                              const _SectionLabel('PERMIT TYPE'),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _PermitTypeButton(
+                                      label: 'Sakit',
+                                      selected: _permitType == 'Sakit',
+                                      onTap: () => setState(
+                                          () => _permitType = 'Sakit'),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: _PermitTypeButton(
+                                      label: 'Izin',
+                                      selected: _permitType == 'Izin',
+                                      onTap: () => setState(
+                                          () => _permitType = 'Izin'),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Date range
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        const _SectionLabel('START DATE'),
+                                        const SizedBox(height: 8),
+                                        _DatePickerField(
+                                          value: _formatDate(_startDate),
+                                          hasValue: _startDate != null,
+                                          onTap: () =>
+                                              _pickDate(isStart: true),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        const _SectionLabel('END DATE'),
+                                        const SizedBox(height: 8),
+                                        _DatePickerField(
+                                          value: _formatDate(_endDate),
+                                          hasValue: _endDate != null,
+                                          onTap: () =>
+                                              _pickDate(isStart: false),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Reason
+                              const _SectionLabel('REASON'),
+                              const SizedBox(height: 8),
+                              TextField(
+                                controller: _reasonCtrl,
+                                maxLines: 3,
+                                style: const TextStyle(
+                                    fontSize: 14,
+                                    color: Color(0xFF191C1E)),
+                                decoration: InputDecoration(
+                                  hintText:
+                                      'Jelaskan alasan absen Anda...',
+                                  hintStyle: const TextStyle(
+                                      color: Color(0xFF9EA3AB),
+                                      fontSize: 14),
+                                  filled: true,
+                                  fillColor: const Color(0xFFF7F9FB),
+                                  contentPadding:
+                                      const EdgeInsets.symmetric(
+                                          horizontal: 12, vertical: 10),
+                                  border: OutlineInputBorder(
+                                    borderRadius:
+                                        BorderRadius.circular(8),
+                                    borderSide: const BorderSide(
+                                        color: Color(0xFFC4C6D0)),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius:
+                                        BorderRadius.circular(8),
+                                    borderSide: BorderSide(
+                                        color: const Color(0xFFC4C6D0)
+                                            .withAlpha(150)),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius:
+                                        BorderRadius.circular(8),
+                                    borderSide: const BorderSide(
+                                        color: Color(0xFF47FBEB),
+                                        width: 1.5),
+                                  ),
+                                ),
+                                enabled: !_submitting,
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Attachment
+                              const _SectionLabel(
+                                  "ATTACHMENT (DOCTOR'S NOTE / LETTER)"),
+                              const SizedBox(height: 8),
+                              GestureDetector(
+                                onTap:
+                                    _submitting ? null : _pickImage,
+                                child: CustomPaint(
+                                  painter: const _DashedBorderPainter(
+                                    color: Color(0xFFC4C6D0),
+                                    radius: 8,
+                                  ),
+                                  child: Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 24, horizontal: 16),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF7F9FB),
+                                      borderRadius:
+                                          BorderRadius.circular(8),
+                                    ),
+                                    child: _imageFile != null
+                                        ? Column(
+                                            mainAxisSize:
+                                                MainAxisSize.min,
+                                            children: [
+                                              const Icon(
+                                                Icons
+                                                    .check_circle_rounded,
+                                                size: 36,
+                                                color:
+                                                    Color(0xFF006A63),
+                                              ),
+                                              const SizedBox(height: 8),
+                                              Text(
+                                                _imageFile!.path
+                                                    .split('/')
+                                                    .last,
+                                                style: const TextStyle(
+                                                  fontSize: 13,
+                                                  color:
+                                                      Color(0xFF006A63),
+                                                  fontWeight:
+                                                      FontWeight.w500,
+                                                ),
+                                                textAlign:
+                                                    TextAlign.center,
+                                                overflow: TextOverflow
+                                                    .ellipsis,
+                                              ),
+                                              const SizedBox(height: 4),
+                                              const Text(
+                                                'Tap untuk ganti file',
+                                                style: TextStyle(
+                                                    fontSize: 11,
+                                                    color: Color(
+                                                        0xFF747780)),
+                                              ),
+                                            ],
+                                          )
+                                        : const Column(
+                                            mainAxisSize:
+                                                MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                Icons
+                                                    .upload_file_rounded,
+                                                size: 36,
+                                                color:
+                                                    Color(0xFF747780),
+                                              ),
+                                              SizedBox(height: 8),
+                                              Text(
+                                                'Tap untuk upload file',
+                                                style: TextStyle(
+                                                  fontSize: 13,
+                                                  color:
+                                                      Color(0xFF43474F),
+                                                  fontWeight:
+                                                      FontWeight.w500,
+                                                ),
+                                              ),
+                                              SizedBox(height: 2),
+                                              Text(
+                                                'JPG/JPEG (Maks 1 MB)',
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  color:
+                                                      Color(0xFF747780),
+                                                  letterSpacing: 0.5,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+
+                        // ── Submit button ─────────────────────────────
+                        SizedBox(
+                          width: double.infinity,
+                          height: 52,
+                          child: ElevatedButton.icon(
+                            onPressed: _submitting ? null : _submit,
+                            icon: _submitting
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white),
+                                  )
+                                : const Icon(Icons.send_rounded,
+                                    size: 18),
+                            label: Text(
+                              _submitting ? 'Mengirim...' : 'Submit Permit',
+                              style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF002B5B),
+                              foregroundColor: Colors.white,
+                              disabledBackgroundColor:
+                                  const Color(0xFF002B5B).withAlpha(120),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius:
+                                      BorderRadius.circular(10)),
+                              elevation: 2,
                             ),
                           ),
-                          onPressed: _submitting ? null : _submit,
-                          child: const Text('Kirim Pengajuan',
-                              style:
-                                  TextStyle(fontWeight: FontWeight.w700)),
                         ),
+
+                        // ── History section ───────────────────────────
+                        const SizedBox(height: 28),
+                        const Text(
+                          'Riwayat Pengajuan',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF191C1E),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        leavesAsync.when(
+                          loading: () => const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 24),
+                            child: Center(
+                                child: CircularProgressIndicator()),
+                          ),
+                          error: (e, _) => Text(
+                            'Gagal memuat riwayat: $e',
+                            style: const TextStyle(color: Colors.red),
+                          ),
+                          data: (leaves) => leaves.isEmpty
+                              ? const Padding(
+                                  padding: EdgeInsets.symmetric(
+                                      vertical: 24),
+                                  child: Center(
+                                    child: Text(
+                                      'Belum ada pengajuan.',
+                                      style: TextStyle(
+                                          color: Color(0xFF747780)),
+                                    ),
+                                  ),
+                                )
+                              : Column(
+                                  children: leaves
+                                      .map((l) => _LeaveCard(leave: l))
+                                      .toList(),
+                                ),
+                        ),
+                        const SizedBox(height: 24),
                       ],
                     ),
                   ),
-                ),
 
-                const SizedBox(height: Spacing.lg),
-
-                const Text(
-                  'Riwayat Pengajuan',
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: Spacing.xs),
-                leavesAsync.when(
-                  loading: () =>
-                      const Center(child: CircularProgressIndicator()),
-                  error: (e, _) => Text('Gagal memuat riwayat: $e',
-                      style: const TextStyle(color: AppColors.error)),
-                  data: (leaves) => leaves.isEmpty
-                      ? const Center(
-                          child: Padding(
-                            padding: EdgeInsets.symmetric(vertical: 24),
-                            child: Text('Belum ada pengajuan.',
-                                style:
-                                    TextStyle(color: AppColors.textHint)),
-                          ),
-                        )
-                      : Column(
-                          children: leaves
-                              .map((l) => _LeaveCard(leave: l))
-                              .toList(),
-                        ),
-                ),
-              ],
-            ),
-
-            if (_submitting)
-              Container(
-                color: Colors.black38,
-                child: const Center(child: CircularProgressIndicator()),
+                  if (_submitting)
+                    Container(
+                      color: Colors.black26,
+                      child: const Center(
+                          child: CircularProgressIndicator()),
+                    ),
+                ],
               ),
+            ),
           ],
         ),
       ),
@@ -321,42 +562,64 @@ class _LeaveRequestScreenState extends ConsumerState<LeaveRequestScreen> {
   }
 }
 
-class _DateField extends StatelessWidget {
-  const _DateField({
+// ── Small reusable widgets ─────────────────────────────────────────────────
+
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Text(
+        text,
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.8,
+          color: Color(0xFF43474F),
+        ),
+      );
+}
+
+class _PermitTypeButton extends StatelessWidget {
+  const _PermitTypeButton({
     required this.label,
-    required this.date,
+    required this.selected,
     required this.onTap,
   });
 
   final String label;
-  final DateTime? date;
+  final bool selected;
   final VoidCallback onTap;
-
-  static const _monthNames = [
-    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
-  ];
-
-  String get _text => date != null
-      ? '${date!.day} ${_monthNames[date!.month - 1]} ${date!.year}'
-      : 'Pilih tanggal';
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    return GestureDetector(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(Spacing.borderRadius),
-      child: InputDecorator(
-        decoration: InputDecoration(
-          labelText: label,
-          suffixIcon:
-              const Icon(Icons.calendar_today_rounded, size: 18),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: selected
+              ? const Color(0xFF47FBEB).withAlpha(25)
+              : Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: selected
+                ? const Color(0xFF47FBEB)
+                : const Color(0xFFC4C6D0),
+            width: selected ? 1.5 : 1,
+          ),
         ),
-        child: Text(
-          _text,
-          style: TextStyle(
-            color: date != null ? AppColors.textPrimary : AppColors.textHint,
-            fontSize: 14,
+        child: Center(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: selected
+                  ? const Color(0xFF00DECF)
+                  : const Color(0xFF43474F),
+            ),
           ),
         ),
       ),
@@ -364,40 +627,89 @@ class _DateField extends StatelessWidget {
   }
 }
 
-class _UploadButton extends StatelessWidget {
-  const _UploadButton({required this.fileName, required this.onTap});
+class _DatePickerField extends StatelessWidget {
+  const _DatePickerField({
+    required this.value,
+    required this.hasValue,
+    required this.onTap,
+  });
 
-  final String? fileName;
-  final VoidCallback? onTap;
+  final String value;
+  final bool hasValue;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final hasFile = fileName != null;
-    return OutlinedButton.icon(
-      icon: Icon(
-        hasFile
-            ? Icons.check_circle_outline_rounded
-            : Icons.upload_file_rounded,
-        size: 18,
-      ),
-      label: Text(
-        hasFile ? fileName! : 'Upload Foto Bukti',
-        overflow: TextOverflow.ellipsis,
-      ),
-      style: OutlinedButton.styleFrom(
-        foregroundColor:
-            hasFile ? AppColors.success : AppColors.secondary,
-        side: BorderSide(
-            color: hasFile ? AppColors.success : AppColors.primary),
-        minimumSize: const Size.fromHeight(48),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(Spacing.borderRadius),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF7F9FB),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+              color: const Color(0xFFC4C6D0).withAlpha(150)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                value,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: hasValue
+                      ? const Color(0xFF191C1E)
+                      : const Color(0xFF9EA3AB),
+                ),
+              ),
+            ),
+            const Icon(Icons.calendar_today_rounded,
+                size: 16, color: Color(0xFF747780)),
+          ],
         ),
       ),
-      onPressed: onTap,
     );
   }
 }
+
+class _DashedBorderPainter extends CustomPainter {
+  const _DashedBorderPainter({required this.color, required this.radius});
+
+  final Color color;
+  final double radius;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+
+    const dashWidth = 7.0;
+    const dashSpace = 4.0;
+    final path = Path()
+      ..addRRect(RRect.fromRectAndRadius(
+        Rect.fromLTWH(0, 0, size.width, size.height),
+        const Radius.circular(8),
+      ));
+
+    for (final metric in path.computeMetrics()) {
+      double distance = 0;
+      while (distance < metric.length) {
+        final end = (distance + dashWidth).clamp(0.0, metric.length);
+        canvas.drawPath(metric.extractPath(distance, end), paint);
+        distance = end + dashSpace;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DashedBorderPainter old) =>
+      old.color != color || old.radius != radius;
+}
+
+// ── Leave history card ─────────────────────────────────────────────────────
 
 class _LeaveCard extends StatelessWidget {
   const _LeaveCard({required this.leave});
@@ -409,38 +721,23 @@ class _LeaveCard extends StatelessWidget {
     'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des',
   ];
 
-  Color get _statusColor {
-    switch (leave.status) {
-      case 'approved':
-        return AppColors.success;
-      case 'rejected':
-        return AppColors.error;
-      default:
-        return AppColors.warning;
-    }
-  }
+  Color get _statusColor => switch (leave.status) {
+        'approved' => const Color(0xFF006A63),
+        'rejected' => Colors.red,
+        _ => const Color(0xFFF5B800),
+      };
 
-  String get _statusLabel {
-    switch (leave.status) {
-      case 'approved':
-        return 'Disetujui';
-      case 'rejected':
-        return 'Ditolak';
-      default:
-        return 'Menunggu';
-    }
-  }
+  String get _statusLabel => switch (leave.status) {
+        'approved' => 'Disetujui',
+        'rejected' => 'Ditolak',
+        _ => 'Menunggu',
+      };
 
-  IconData get _statusIcon {
-    switch (leave.status) {
-      case 'approved':
-        return Icons.check_circle_outline_rounded;
-      case 'rejected':
-        return Icons.cancel_outlined;
-      default:
-        return Icons.hourglass_empty_rounded;
-    }
-  }
+  IconData get _statusIcon => switch (leave.status) {
+        'approved' => Icons.check_circle_outline_rounded,
+        'rejected' => Icons.cancel_outlined,
+        _ => Icons.hourglass_empty_rounded,
+      };
 
   String _formatDate(String? dateStr) {
     if (dateStr == null) return '-';
@@ -450,7 +747,7 @@ class _LeaveCard extends StatelessWidget {
     return '${parts[2]} ${_monthNames[month - 1]} ${parts[0]}';
   }
 
-  String _dateRange() {
+  String get _dateRange {
     final from = leave.dateFrom;
     final to = leave.dateTo;
     if (from == null || to == null) return '-';
@@ -461,11 +758,13 @@ class _LeaveCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: Spacing.xs),
-      padding: const EdgeInsets.all(Spacing.sm),
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(Spacing.borderRadius),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+            color: const Color(0xFFC4C6D0).withAlpha(80)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -474,12 +773,12 @@ class _LeaveCard extends StatelessWidget {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: _statusColor.withAlpha(31),
+              color: _statusColor.withAlpha(25),
               shape: BoxShape.circle,
             ),
             child: Icon(_statusIcon, color: _statusColor, size: 18),
           ),
-          const SizedBox(width: Spacing.sm),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -490,7 +789,7 @@ class _LeaveCard extends StatelessWidget {
                       child: Text(
                         leave.type == 'sakit' ? 'Sakit' : 'Izin',
                         style: const TextStyle(
-                          color: AppColors.textPrimary,
+                          color: Color(0xFF191C1E),
                           fontWeight: FontWeight.w600,
                           fontSize: 13,
                         ),
@@ -500,7 +799,7 @@ class _LeaveCard extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: _statusColor.withAlpha(31),
+                        color: _statusColor.withAlpha(25),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
@@ -516,9 +815,9 @@ class _LeaveCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '${_dateRange()}  ·  ${leave.reason ?? ''}',
+                  '$_dateRange  ·  ${leave.reason ?? ''}',
                   style: const TextStyle(
-                      color: AppColors.textSecondary, fontSize: 12),
+                      color: Color(0xFF747780), fontSize: 12),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -527,7 +826,7 @@ class _LeaveCard extends StatelessWidget {
                   Text(
                     'Alasan penolakan: ${leave.rejectedReason}',
                     style: const TextStyle(
-                        color: AppColors.error, fontSize: 11),
+                        color: Colors.red, fontSize: 11),
                   ),
                 ],
               ],
