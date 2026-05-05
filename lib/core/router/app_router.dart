@@ -82,6 +82,12 @@ GoRouter buildRouter(Ref ref) {
         builder: (_, __) => const EnrollmentScreen(),
       ),
       GoRoute(
+        path: '/enroll-face/:userId',
+        builder: (_, state) => EnrollmentScreen(
+          guestUserId: state.pathParameters['userId'],
+        ),
+      ),
+      GoRoute(
         path: '/attendance',
         builder: (_, __) => const AttendanceScreen(),
       ),
@@ -148,7 +154,10 @@ GoRouter buildRouter(Ref ref) {
 
       if (!loggedIn) {
         const guestRoutes = {'/welcome', '/login', '/parent-login', '/nisn-verify'};
-        return guestRoutes.contains(loc) ? null : '/welcome';
+        if (guestRoutes.contains(loc) || loc.startsWith('/enroll-face/')) {
+          return null;
+        }
+        return '/welcome';
       }
 
       // Logged in. Now check enrollment for siswa role only.

@@ -7,13 +7,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:toastification/toastification.dart';
 
 import '../../../../core/services/camera_service.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../providers/enrollment_provider.dart';
 
 class EnrollmentScreen extends ConsumerStatefulWidget {
-  const EnrollmentScreen({super.key});
+  const EnrollmentScreen({super.key, this.guestUserId});
+
+  /// When set, enrollment runs without a logged-in session (NISN-verify flow).
+  final String? guestUserId;
 
   @override
   ConsumerState<EnrollmentScreen> createState() => _EnrollmentScreenState();
@@ -128,14 +132,29 @@ class _EnrollmentScreenState extends ConsumerState<EnrollmentScreen>
   }
 
   Future<void> _finalize() async {
-    final user = ref.read(authProvider).valueOrNull;
-    if (user == null) return;
+    final guestUserId = widget.guestUserId;
+    final userId = guestUserId ?? ref.read(authProvider).valueOrNull?.id;
+    if (userId == null) return;
+
     try {
-      await ref.read(enrollmentControllerProvider.notifier).finalize(user.id);
+      await ref.read(enrollmentControllerProvider.notifier).finalize(userId);
       if (!mounted) return;
       await Future<void>.delayed(const Duration(milliseconds: 800));
       if (!mounted) return;
-      context.go('/dashboard');
+
+      if (guestUserId != null) {
+        toastification.show(
+          type: ToastificationType.success,
+          style: ToastificationStyle.flatColored,
+          title: const Text('Wajah Berhasil Didaftarkan!'),
+          description: const Text('Silakan login untuk melanjutkan.'),
+          autoCloseDuration: const Duration(seconds: 3),
+          alignment: Alignment.topCenter,
+        );
+        context.go('/login');
+      } else {
+        context.go('/dashboard');
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

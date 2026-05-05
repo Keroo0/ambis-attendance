@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class NisnVerificationScreen extends StatefulWidget {
   const NisnVerificationScreen({super.key});
@@ -13,6 +14,7 @@ class _NisnVerificationScreenState extends State<NisnVerificationScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nisnCtrl = TextEditingController();
   bool _loading = false;
+  String? _serverError;
 
   @override
   void dispose() {
@@ -21,14 +23,46 @@ class _NisnVerificationScreenState extends State<NisnVerificationScreen> {
   }
 
   Future<void> _verify() async {
+    setState(() => _serverError = null);
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
-    await Future<void>.delayed(const Duration(milliseconds: 600));
-    if (!mounted) return;
-    setState(() => _loading = false);
-    // Navigate to login so the user authenticates; router will redirect to
-    // /enrollment automatically when siswa is logged in but not enrolled.
-    context.go('/login');
+
+    try {
+      final nisn = _nisnCtrl.text.trim();
+      final result = await Supabase.instance.client
+          .from('users')
+          .select('id, fullname')
+          .eq('nisn', nisn)
+          .eq('role', 'siswa')
+          .eq('is_active', true)
+          .maybeSingle();
+
+      if (!mounted) return;
+
+      if (result == null) {
+        setState(() {
+          _loading = false;
+          _serverError = 'NISN tidak terdaftar di sistem. Hubungi Admin IT.';
+        });
+        return;
+      }
+
+      final userId = result['id'] as String;
+      setState(() => _loading = false);
+      context.go('/enroll-face/$userId');
+    } on PostgrestException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _serverError = 'Terjadi kesalahan: ${e.message}';
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _serverError = 'Gagal terhubung ke server. Coba lagi.';
+      });
+    }
   }
 
   @override
@@ -73,10 +107,7 @@ class _NisnVerificationScreenState extends State<NisnVerificationScreen> {
                         SizedBox(height: 2),
                         Text(
                           'Presensi Biometrik',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFF43474F),
-                          ),
+                          style: TextStyle(fontSize: 12, color: Color(0xFF43474F)),
                         ),
                       ],
                     ),
@@ -148,6 +179,11 @@ class _NisnVerificationScreenState extends State<NisnVerificationScreen> {
                             const SizedBox(height: 8),
                             TextFormField(
                               controller: _nisnCtrl,
+                              onChanged: (_) {
+                                if (_serverError != null) {
+                                  setState(() => _serverError = null);
+                                }
+                              },
                               decoration: InputDecoration(
                                 hintText: 'Contoh: 0012345678',
                                 hintStyle: const TextStyle(
@@ -159,6 +195,7 @@ class _NisnVerificationScreenState extends State<NisnVerificationScreen> {
                                   size: 20,
                                   color: Color(0xFF747780),
                                 ),
+                                errorText: _serverError,
                                 filled: true,
                                 fillColor: const Color(0xFFF7F9FB),
                                 border: OutlineInputBorder(
@@ -169,21 +206,23 @@ class _NisnVerificationScreenState extends State<NisnVerificationScreen> {
                                 enabledBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(10),
                                   borderSide: BorderSide(
-                                    color:
-                                        const Color(0xFFC4C6D0).withAlpha(130),
+                                    color: _serverError != null
+                                        ? Colors.red
+                                        : const Color(0xFFC4C6D0).withAlpha(130),
                                   ),
                                 ),
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(10),
-                                  borderSide: const BorderSide(
-                                    color: Color(0xFF006A63),
+                                  borderSide: BorderSide(
+                                    color: _serverError != null
+                                        ? Colors.red
+                                        : const Color(0xFF006A63),
                                     width: 1.5,
                                   ),
                                 ),
                                 errorBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(10),
-                                  borderSide:
-                                      const BorderSide(color: Colors.red),
+                                  borderSide: const BorderSide(color: Colors.red),
                                 ),
                                 focusedErrorBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(10),
@@ -233,7 +272,9 @@ class _NisnVerificationScreenState extends State<NisnVerificationScreen> {
                                         size: 20,
                                       ),
                                 label: Text(
-                                  _loading ? 'Memverifikasi...' : 'Verifikasi NISN',
+                                  _loading
+                                      ? 'Memverifikasi...'
+                                      : 'Verifikasi NISN',
                                   style: const TextStyle(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w700,
@@ -256,23 +297,20 @@ class _NisnVerificationScreenState extends State<NisnVerificationScreen> {
                       ),
                       const SizedBox(height: 24),
 
-                      Row(
+                      const Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.help_outline,
                             size: 16,
                             color: Color(0xFF405F91),
                           ),
-                          const SizedBox(width: 6),
-                          GestureDetector(
-                            onTap: () {},
-                            child: const Text(
-                              'Butuh bantuan? Hubungi Admin IT',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Color(0xFF405F91),
-                              ),
+                          SizedBox(width: 6),
+                          Text(
+                            'Butuh bantuan? Hubungi Admin IT',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF405F91),
                             ),
                           ),
                         ],
