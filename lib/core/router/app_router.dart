@@ -99,6 +99,10 @@ GoRouter buildRouter(Ref ref) {
         path: '/notifications',
         builder: (_, __) => const NotificationsScreen(),
       ),
+      GoRoute(
+        path: '/history',
+        builder: (_, __) => const HistoryScreen(),
+      ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
             AppShell(navigationShell: navigationShell),
@@ -108,14 +112,6 @@ GoRouter buildRouter(Ref ref) {
               GoRoute(
                 path: '/dashboard',
                 builder: (_, __) => const DashboardScreen(),
-              ),
-            ],
-          ),
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: '/history',
-                builder: (_, __) => const HistoryScreen(),
               ),
             ],
           ),
