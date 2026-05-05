@@ -6,6 +6,7 @@ import '../../features/attendance/presentation/screens/attendance_screen.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/splash_screen.dart';
+import '../../features/auth/presentation/screens/welcome_screen.dart';
 import '../../features/dashboard/presentation/screens/dashboard_screen.dart';
 import '../../features/enrollment/presentation/screens/enrollment_screen.dart';
 import '../../features/grades/presentation/screens/grades_screen.dart';
@@ -57,6 +58,10 @@ GoRouter buildRouter(Ref ref) {
       GoRoute(
         path: '/splash',
         builder: (_, __) => const SplashScreen(),
+      ),
+      GoRoute(
+        path: '/welcome',
+        builder: (_, __) => const WelcomeScreen(),
       ),
       GoRoute(
         path: '/login',
@@ -132,12 +137,13 @@ GoRouter buildRouter(Ref ref) {
       final loggedIn = user != null;
 
       if (!loggedIn) {
-        return loc == '/login' ? null : '/login';
+        const guestRoutes = {'/welcome', '/login'};
+        return guestRoutes.contains(loc) ? null : '/welcome';
       }
 
       // Logged in. Now check enrollment for siswa role only.
       if (user.role != 'siswa') {
-        if (loc == '/login' || loc == '/splash') return '/dashboard';
+        if (loc == '/login' || loc == '/splash' || loc == '/welcome') return '/dashboard';
         return null;
       }
 
@@ -152,7 +158,7 @@ GoRouter buildRouter(Ref ref) {
       if (!enrolled && loc != '/enrollment') {
         return '/enrollment';
       }
-      if (enrolled && (loc == '/login' || loc == '/splash')) {
+      if (enrolled && (loc == '/login' || loc == '/splash' || loc == '/welcome')) {
         return '/dashboard';
       }
       return null;
