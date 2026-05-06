@@ -2,9 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../../core/constants/colors.dart';
-import '../../../../core/constants/spacing.dart';
-import '../../../../shared/widgets/gradient_background.dart';
 import '../../data/repositories/attendance_history_repository.dart';
 import '../providers/history_provider.dart';
 
@@ -50,87 +47,98 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     final async = ref.watch(historyProvider((_displayMonth.year, _displayMonth.month)));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Riwayat Kehadiran')),
+      backgroundColor: const Color(0xFFF7F9FB),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        foregroundColor: const Color(0xFF191C1E),
+        elevation: 0,
+        title: const Text(
+          'Riwayat Kehadiran',
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF191C1E),
+          ),
+        ),
+      ),
       floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: AppColors.accent,
-        foregroundColor: AppColors.background,
+        backgroundColor: const Color(0xFF006A63),
+        foregroundColor: Colors.white,
         icon: const Icon(Icons.add_rounded),
         label: const Text('Ajukan Izin'),
         onPressed: () => context.push('/leave'),
       ),
-      body: GradientBackground(
-        child: async.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Center(
-            child: Padding(
-              padding: const EdgeInsets.all(Spacing.md),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    'Gagal memuat riwayat: $e',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: AppColors.error),
+      body: async.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'Gagal memuat riwayat: $e',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Color(0xFFBA1A1A)),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () => ref.invalidate(
+                    historyProvider((_displayMonth.year, _displayMonth.month)),
                   ),
-                  const SizedBox(height: Spacing.sm),
-                  ElevatedButton(
-                    onPressed: () => ref.invalidate(
-                      historyProvider((_displayMonth.year, _displayMonth.month)),
-                    ),
-                    child: const Text('Coba Lagi'),
-                  ),
-                ],
-              ),
+                  child: const Text('Coba Lagi'),
+                ),
+              ],
             ),
           ),
-          data: (records) {
-            final recordMap = {
-              for (final r in records)
-                DateTime(r.date.year, r.date.month, r.date.day): r,
-            };
-            final hadir =
-                records.where((r) => r.status == AttendanceStatus.hadir).length;
-            final terlambat = records
-                .where((r) => r.status == AttendanceStatus.terlambat)
-                .length;
-            final izin =
-                records.where((r) => r.status == AttendanceStatus.izin).length;
-            final alfa =
-                records.where((r) => r.status == AttendanceStatus.alfa).length;
-            final selectedRecord =
-                _selectedDate != null ? recordMap[_selectedDate] : null;
-
-            return ListView(
-              padding: const EdgeInsets.fromLTRB(
-                  Spacing.md, Spacing.md, Spacing.md, 100),
-              children: [
-                _CalendarCard(
-                  displayMonth: _displayMonth,
-                  recordMap: recordMap,
-                  selectedDate: _selectedDate,
-                  canGoNext: _canGoNext,
-                  onDateTap: (d) => setState(() => _selectedDate = d),
-                  onPrevMonth: _prevMonth,
-                  onNextMonth: _nextMonth,
-                ),
-                const SizedBox(height: Spacing.sm),
-                _SummaryRow(
-                    hadir: hadir,
-                    terlambat: terlambat,
-                    izin: izin,
-                    alfa: alfa),
-                if (_selectedDate != null) ...[
-                  const SizedBox(height: Spacing.sm),
-                  _DayDetailCard(date: _selectedDate!, record: selectedRecord),
-                ],
-                const SizedBox(height: Spacing.sm),
-                const _LegendRow(),
-                const SizedBox(height: Spacing.sm),
-                _RecentList(records: records.reversed.toList()),
-              ],
-            );
-          },
         ),
+        data: (records) {
+          final recordMap = {
+            for (final r in records)
+              DateTime(r.date.year, r.date.month, r.date.day): r,
+          };
+          final hadir =
+              records.where((r) => r.status == AttendanceStatus.hadir).length;
+          final terlambat = records
+              .where((r) => r.status == AttendanceStatus.terlambat)
+              .length;
+          final izin =
+              records.where((r) => r.status == AttendanceStatus.izin).length;
+          final alfa =
+              records.where((r) => r.status == AttendanceStatus.alfa).length;
+          final selectedRecord =
+              _selectedDate != null ? recordMap[_selectedDate] : null;
+
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+            children: [
+              _CalendarCard(
+                displayMonth: _displayMonth,
+                recordMap: recordMap,
+                selectedDate: _selectedDate,
+                canGoNext: _canGoNext,
+                onDateTap: (d) => setState(() => _selectedDate = d),
+                onPrevMonth: _prevMonth,
+                onNextMonth: _nextMonth,
+              ),
+              const SizedBox(height: 12),
+              _SummaryRow(
+                  hadir: hadir,
+                  terlambat: terlambat,
+                  izin: izin,
+                  alfa: alfa),
+              if (_selectedDate != null) ...[
+                const SizedBox(height: 12),
+                _DayDetailCard(date: _selectedDate!, record: selectedRecord),
+              ],
+              const SizedBox(height: 12),
+              const _LegendRow(),
+              const SizedBox(height: 12),
+              _RecentList(records: records.reversed.toList()),
+            ],
+          );
+        },
       ),
     );
   }
@@ -172,10 +180,18 @@ class _CalendarCard extends StatelessWidget {
     final now = DateTime.now();
 
     return Container(
-      padding: const EdgeInsets.all(Spacing.md),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(Spacing.borderRadius),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFC4C6D0).withValues(alpha: 0.5)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x08000000),
+            blurRadius: 6,
+            offset: Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         children: [
@@ -184,13 +200,13 @@ class _CalendarCard extends StatelessWidget {
             children: [
               IconButton(
                 icon: const Icon(Icons.chevron_left),
-                color: AppColors.textSecondary,
+                color: const Color(0xFF43474F),
                 onPressed: onPrevMonth,
               ),
               Text(
                 '${_monthNames[displayMonth.month - 1]} ${displayMonth.year}',
                 style: const TextStyle(
-                  color: AppColors.textPrimary,
+                  color: Color(0xFF191C1E),
                   fontWeight: FontWeight.w700,
                   fontSize: 15,
                 ),
@@ -198,13 +214,13 @@ class _CalendarCard extends StatelessWidget {
               IconButton(
                 icon: Icon(Icons.chevron_right,
                     color: canGoNext
-                        ? AppColors.textSecondary
-                        : AppColors.surfaceAlt),
+                        ? const Color(0xFF43474F)
+                        : const Color(0xFFE0E3E5)),
                 onPressed: canGoNext ? onNextMonth : null,
               ),
             ],
           ),
-          const SizedBox(height: Spacing.xs),
+          const SizedBox(height: 4),
           Row(
             children: _dayLabels
                 .map((d) => Expanded(
@@ -212,7 +228,7 @@ class _CalendarCard extends StatelessWidget {
                         child: Text(
                           d,
                           style: const TextStyle(
-                            color: AppColors.textHint,
+                            color: Color(0xFF747780),
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
                           ),
@@ -277,13 +293,13 @@ class _CalendarCell extends StatelessWidget {
     if (record == null) return Colors.transparent;
     switch (record!.status) {
       case AttendanceStatus.hadir:
-        return AppColors.success;
+        return const Color(0xFF16A34A);
       case AttendanceStatus.terlambat:
-        return AppColors.warning;
+        return const Color(0xFFEA580C);
       case AttendanceStatus.izin:
-        return AppColors.secondary;
+        return const Color(0xFF006A63);
       case AttendanceStatus.alfa:
-        return AppColors.error;
+        return const Color(0xFFBA1A1A);
     }
   }
 
@@ -296,12 +312,12 @@ class _CalendarCell extends StatelessWidget {
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: isSelected
-              ? AppColors.accent
+              ? const Color(0xFF006A63)
               : record != null
-                  ? _statusColor.withAlpha(51)
+                  ? _statusColor.withValues(alpha: 0.15)
                   : Colors.transparent,
           border: isToday && !isSelected
-              ? Border.all(color: AppColors.accent, width: 1.5)
+              ? Border.all(color: const Color(0xFF006A63), width: 1.5)
               : null,
         ),
         child: Center(
@@ -312,10 +328,10 @@ class _CalendarCell extends StatelessWidget {
                 '$day',
                 style: TextStyle(
                   color: isSelected
-                      ? AppColors.background
+                      ? Colors.white
                       : isToday
-                          ? AppColors.accent
-                          : AppColors.textPrimary,
+                          ? const Color(0xFF006A63)
+                          : const Color(0xFF191C1E),
                   fontSize: 11,
                   fontWeight:
                       isToday || isSelected ? FontWeight.w700 : FontWeight.w400,
@@ -357,14 +373,13 @@ class _SummaryRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        _SummaryChip(label: 'Hadir', value: hadir, color: AppColors.success),
-        const SizedBox(width: Spacing.xs),
-        _SummaryChip(
-            label: 'Terlambat', value: terlambat, color: AppColors.warning),
-        const SizedBox(width: Spacing.xs),
-        _SummaryChip(label: 'Izin', value: izin, color: AppColors.secondary),
-        const SizedBox(width: Spacing.xs),
-        _SummaryChip(label: 'Alfa', value: alfa, color: AppColors.error),
+        _SummaryChip(label: 'Hadir', value: hadir, color: const Color(0xFF16A34A)),
+        const SizedBox(width: 8),
+        _SummaryChip(label: 'Terlambat', value: terlambat, color: const Color(0xFFEA580C)),
+        const SizedBox(width: 8),
+        _SummaryChip(label: 'Izin', value: izin, color: const Color(0xFF006A63)),
+        const SizedBox(width: 8),
+        _SummaryChip(label: 'Alfa', value: alfa, color: const Color(0xFFBA1A1A)),
       ],
     );
   }
@@ -384,9 +399,9 @@ class _SummaryChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 8),
         decoration: BoxDecoration(
-          color: color.withAlpha(31),
+          color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: color.withAlpha(77), width: 1),
+          border: Border.all(color: color.withValues(alpha: 0.25), width: 1),
         ),
         child: Column(
           children: [
@@ -401,7 +416,7 @@ class _SummaryChip extends StatelessWidget {
             Text(
               label,
               style: const TextStyle(
-                  color: AppColors.textSecondary, fontSize: 10),
+                  color: Color(0xFF43474F), fontSize: 10),
             ),
           ],
         ),
@@ -434,34 +449,38 @@ class _DayDetailCard extends StatelessWidget {
 
     if (record == null) {
       statusLabel = 'Tidak ada data';
-      statusColor = AppColors.textHint;
+      statusColor = const Color(0xFF747780);
       detail = 'Hari libur atau data belum tersedia.';
     } else {
       switch (record!.status) {
         case AttendanceStatus.hadir:
           statusLabel = 'Hadir';
-          statusColor = AppColors.success;
+          statusColor = const Color(0xFF16A34A);
           detail = 'Masuk pukul ${record!.checkInTime ?? '-'}';
         case AttendanceStatus.terlambat:
           statusLabel = 'Terlambat';
-          statusColor = AppColors.warning;
+          statusColor = const Color(0xFFEA580C);
           detail = 'Masuk pukul ${record!.checkInTime ?? '-'}';
         case AttendanceStatus.izin:
           statusLabel = 'Izin';
-          statusColor = AppColors.secondary;
+          statusColor = const Color(0xFF006A63);
           detail = 'Izin resmi disetujui';
         case AttendanceStatus.alfa:
           statusLabel = 'Alfa';
-          statusColor = AppColors.error;
+          statusColor = const Color(0xFFBA1A1A);
           detail = 'Tidak hadir tanpa keterangan';
       }
     }
 
     return Container(
-      padding: const EdgeInsets.all(Spacing.md),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(Spacing.borderRadius),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFC4C6D0).withValues(alpha: 0.5)),
+        boxShadow: const [
+          BoxShadow(color: Color(0x08000000), blurRadius: 6, offset: Offset(0, 2)),
+        ],
       ),
       child: Row(
         children: [
@@ -469,7 +488,7 @@ class _DayDetailCard extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: statusColor.withAlpha(31),
+              color: statusColor.withValues(alpha: 0.12),
               shape: BoxShape.circle,
             ),
             child: Center(
@@ -482,18 +501,18 @@ class _DayDetailCard extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: Spacing.sm),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(dateStr,
                     style: const TextStyle(
-                        color: AppColors.textSecondary, fontSize: 12)),
+                        color: Color(0xFF43474F), fontSize: 12)),
                 const SizedBox(height: 2),
                 Text(detail,
                     style: const TextStyle(
-                        color: AppColors.textPrimary, fontSize: 13)),
+                        color: Color(0xFF191C1E), fontSize: 13)),
               ],
             ),
           ),
@@ -501,7 +520,7 @@ class _DayDetailCard extends StatelessWidget {
             padding:
                 const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: statusColor.withAlpha(31),
+              color: statusColor.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
@@ -528,13 +547,13 @@ class _LegendRow extends StatelessWidget {
     return const Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        _LegendDot(color: AppColors.success, label: 'Hadir'),
+        _LegendDot(color: Color(0xFF16A34A), label: 'Hadir'),
         SizedBox(width: 12),
-        _LegendDot(color: AppColors.warning, label: 'Terlambat'),
+        _LegendDot(color: Color(0xFFEA580C), label: 'Terlambat'),
         SizedBox(width: 12),
-        _LegendDot(color: AppColors.secondary, label: 'Izin'),
+        _LegendDot(color: Color(0xFF006A63), label: 'Izin'),
         SizedBox(width: 12),
-        _LegendDot(color: AppColors.error, label: 'Alfa'),
+        _LegendDot(color: Color(0xFFBA1A1A), label: 'Alfa'),
       ],
     );
   }
@@ -559,7 +578,7 @@ class _LegendDot extends StatelessWidget {
         const SizedBox(width: 4),
         Text(label,
             style: const TextStyle(
-                color: AppColors.textSecondary, fontSize: 11)),
+                color: Color(0xFF43474F), fontSize: 11)),
       ],
     );
   }
@@ -584,7 +603,7 @@ class _RecentList extends StatelessWidget {
         child: Padding(
           padding: EdgeInsets.symmetric(vertical: 32),
           child: Text('Belum ada data bulan ini.',
-              style: TextStyle(color: AppColors.textHint)),
+              style: TextStyle(color: Color(0xFF747780))),
         ),
       );
     }
@@ -594,26 +613,26 @@ class _RecentList extends StatelessWidget {
         const Text(
           'Detail Bulan Ini',
           style: TextStyle(
-              color: AppColors.textSecondary,
+              color: Color(0xFF43474F),
               fontSize: 12,
               fontWeight: FontWeight.w600),
         ),
-        const SizedBox(height: Spacing.xs),
+        const SizedBox(height: 8),
         ...records.map((r) {
           Color color;
           String label;
           switch (r.status) {
             case AttendanceStatus.hadir:
-              color = AppColors.success;
+              color = const Color(0xFF16A34A);
               label = 'Hadir';
             case AttendanceStatus.terlambat:
-              color = AppColors.warning;
+              color = const Color(0xFFEA580C);
               label = 'Terlambat';
             case AttendanceStatus.izin:
-              color = AppColors.secondary;
+              color = const Color(0xFF006A63);
               label = 'Izin';
             case AttendanceStatus.alfa:
-              color = AppColors.error;
+              color = const Color(0xFFBA1A1A);
               label = 'Alfa';
           }
           final dateStr =
@@ -621,10 +640,12 @@ class _RecentList extends StatelessWidget {
           return Container(
             margin: const EdgeInsets.only(bottom: 4),
             padding: const EdgeInsets.symmetric(
-                horizontal: Spacing.sm, vertical: 10),
+                horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              color: AppColors.surface,
+              color: Colors.white,
               borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                  color: const Color(0xFFC4C6D0).withValues(alpha: 0.5)),
             ),
             child: Row(
               children: [
@@ -634,23 +655,23 @@ class _RecentList extends StatelessWidget {
                   decoration:
                       BoxDecoration(shape: BoxShape.circle, color: color),
                 ),
-                const SizedBox(width: Spacing.sm),
+                const SizedBox(width: 10),
                 Text(dateStr,
                     style: const TextStyle(
-                        color: AppColors.textSecondary, fontSize: 12)),
-                const SizedBox(width: Spacing.sm),
+                        color: Color(0xFF43474F), fontSize: 12)),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     r.checkInTime != null ? 'Masuk ${r.checkInTime}' : label,
                     style: const TextStyle(
-                        color: AppColors.textPrimary, fontSize: 13),
+                        color: Color(0xFF191C1E), fontSize: 13),
                   ),
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(
                       horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: color.withAlpha(31),
+                    color: color.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(label,

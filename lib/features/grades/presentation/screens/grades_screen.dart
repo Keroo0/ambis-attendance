@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../data/repositories/grade_repository.dart';
 import '../providers/grades_provider.dart';
@@ -49,7 +50,7 @@ class _GradesScreenState extends ConsumerState<GradesScreen> {
                   ),
                   const Spacer(),
                   IconButton(
-                    onPressed: () {},
+                    onPressed: () => context.push('/notifications'),
                     icon: const Icon(Icons.notifications_outlined,
                         color: Color(0xFF002B5B)),
                   ),

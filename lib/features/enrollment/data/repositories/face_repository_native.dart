@@ -192,6 +192,14 @@ class FaceRepository {
       AppConstants.embeddingSize,
     );
   }
+
+  Future<bool> hasActiveEmbedding(String userId) async {
+    final query = _db.select(_db.faceEmbeddings)
+      ..where((t) => t.studentId.equals(userId))
+      ..where((t) => t.isActive.equals(true));
+    final row = await query.getSingleOrNull();
+    return row != null;
+  }
 }
 
 final faceRepositoryProvider = Provider<FaceRepository>((ref) {

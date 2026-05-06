@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:toastification/toastification.dart';
 
+import '../../../../core/constants/design_tokens.dart';
 import '../../../../core/exceptions/app_exception.dart';
 import '../../../../shared/utils/validators.dart';
 import '../providers/auth_provider.dart';
@@ -21,6 +22,41 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _obscure = true;
 
   @override
+  void initState() {
+    super.initState();
+    // ✅ FIX BLUNDER #2: State Management — ref.listen (declarative)
+    // Listen to auth state changes and react automatically
+    ref.listenManual(authProvider, (prev, next) {
+      if (!mounted) return;
+
+      next.whenOrNull(
+        data: (user) {
+          if (user == null) return;
+          toastification.show(
+            type: ToastificationType.success,
+            style: ToastificationStyle.flatColored,
+            title: Text('Halo, ${user.fullname}!', style: DesignTokens.bodyLg),
+            description: const Text('Login berhasil', style: DesignTokens.bodySm),
+            autoCloseDuration: const Duration(seconds: 2),
+            alignment: Alignment.topCenter,
+          );
+        },
+        error: (err, _) {
+          final msg = err is AppException ? err.message : err.toString();
+          toastification.show(
+            type: ToastificationType.error,
+            style: ToastificationStyle.flatColored,
+            title: const Text('Login Gagal', style: DesignTokens.bodyLg),
+            description: Text(msg, style: DesignTokens.bodySm),
+            autoCloseDuration: const Duration(seconds: 3),
+            alignment: Alignment.topCenter,
+          );
+        },
+      );
+    });
+  }
+
+  @override
   void dispose() {
     _nisnCtrl.dispose();
     _passwordCtrl.dispose();
@@ -31,106 +67,78 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (!_formKey.currentState!.validate()) return;
     FocusScope.of(context).unfocus();
 
+    // ✅ Clean submission — no imperative state reading
     await ref.read(authProvider.notifier).login(
           _nisnCtrl.text.trim(),
           _passwordCtrl.text,
         );
-
-    if (!mounted) return;
-    final authState = ref.read(authProvider);
-    authState.whenOrNull(
-      data: (user) {
-        if (user == null) return;
-        toastification.show(
-          type: ToastificationType.success,
-          style: ToastificationStyle.flatColored,
-          title: Text('Halo, ${user.fullname}!'),
-          description: const Text('Login berhasil'),
-          autoCloseDuration: const Duration(seconds: 2),
-          alignment: Alignment.topCenter,
-        );
-      },
-      error: (err, _) {
-        final msg = err is AppException ? err.message : err.toString();
-        toastification.show(
-          type: ToastificationType.error,
-          style: ToastificationStyle.flatColored,
-          title: const Text('Login Gagal'),
-          description: Text(msg),
-          autoCloseDuration: const Duration(seconds: 3),
-          alignment: Alignment.topCenter,
-        );
-      },
-    );
   }
 
   @override
   Widget build(BuildContext context) {
+    // ✅ FIX BLUNDER #3: Using Design Tokens
+    // ✅ FIX BLUNDER #2: Watch loading state declaratively
     final isLoading = ref.watch(authProvider).isLoading;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F9FB),
+      backgroundColor: DesignTokens.background,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+            padding: const EdgeInsets.symmetric(
+              horizontal: DesignTokens.spacing16,
+              vertical: DesignTokens.spacing32,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // ── Header ─────────────────────────────────────────────
+                // ── Logo ─────────────────────────────────
                 Container(
                   width: 96,
                   height: 96,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    border: Border.all(color: const Color(0xFFC4C6D0), width: 1.5),
-                    color: Colors.white,
+                    border: Border.all(color: DesignTokens.outlineVariant, width: 1),
+                    color: DesignTokens.surface,
                   ),
                   clipBehavior: Clip.hardEdge,
-                  child: Image.asset('assets/images/logoAMBIS.png', fit: BoxFit.cover),
+                  // ✅ FIX: Correct asset name (LogoAMBIS.png with capital L)
+                  child: Image.asset('assets/images/LogoAMBIS.png', fit: BoxFit.cover),
                 ),
-                const SizedBox(height: 16),
-                const Text(
+                const SizedBox(height: DesignTokens.spacing16),
+
+                // ── Title ────────────────────────────────
+                Text(
                   'SMAN 07 Tangerang',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF002B5B),
-                  ),
+                  style: DesignTokens.h2.copyWith(color: DesignTokens.primary),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: DesignTokens.spacing8),
                 const Text(
                   'Portal Akademik Siswa',
-                  style: TextStyle(fontSize: 13, color: Color(0xFF43474F)),
+                  style: DesignTokens.bodySm,
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: DesignTokens.spacing24),
 
-                // ── Card ───────────────────────────────────────────────
+                // ── Card ────────────────────────────────
                 Container(
                   decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFFC4C6D0).withAlpha(80)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withAlpha(10),
-                        blurRadius: 24,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
+                    color: DesignTokens.surface,
+                    borderRadius: DesignTokens.radius16,
+                    border: Border.all(color: DesignTokens.outlineVariant, width: 1),
+                    boxShadow: [DesignTokens.cardShadow],
                   ),
                   child: Column(
                     children: [
                       Padding(
-                        padding: const EdgeInsets.all(24),
+                        padding: const EdgeInsets.all(DesignTokens.spacing24),
                         child: Form(
                           key: _formKey,
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              // NISN field
+                              // NISN Field
                               const _FieldLabel('NISN / USERNAME'),
-                              const SizedBox(height: 8),
+                              const SizedBox(height: DesignTokens.spacing8),
                               TextFormField(
                                 controller: _nisnCtrl,
                                 decoration: _inputDeco(
@@ -143,9 +151,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 validator: Validators.nisn,
                                 enabled: !isLoading,
                               ),
-                              const SizedBox(height: 20),
+                              const SizedBox(height: DesignTokens.spacing20),
 
-                              // Password field
+                              // Password Field
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
@@ -159,38 +167,44 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                     ),
                                     child: const Text(
                                       'Lupa Password?',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                        color: Color(0xFF006A63),
-                                      ),
+                                      style: DesignTokens.smallText,
                                     ),
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 8),
+                              const SizedBox(height: DesignTokens.spacing8),
                               TextFormField(
                                 controller: _passwordCtrl,
                                 decoration: InputDecoration(
                                   hintText: 'Masukkan Password Anda',
-                                  hintStyle: const TextStyle(color: Color(0xFF9EA3AB), fontSize: 14),
-                                  prefixIcon: const Icon(Icons.lock_outline, size: 20, color: Color(0xFF747780)),
+                                  hintStyle: DesignTokens.bodySm.copyWith(
+                                    color: DesignTokens.hintText,
+                                  ),
+                                  prefixIcon: const Icon(Icons.lock_outline,
+                                      size: 20, color: DesignTokens.iconDefault),
                                   suffixIcon: IconButton(
                                     icon: Icon(
-                                      _obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                                      _obscure
+                                          ? Icons.visibility_off_outlined
+                                          : Icons.visibility_outlined,
                                       size: 20,
-                                      color: const Color(0xFF747780),
+                                      color: DesignTokens.iconDefault,
                                     ),
-                                    onPressed: () => setState(() => _obscure = !_obscure),
+                                    onPressed: () =>
+                                        setState(() => _obscure = !_obscure),
                                   ),
                                   filled: true,
-                                  fillColor: const Color(0xFFF7F9FB),
-                                  border: _border(),
-                                  enabledBorder: _enabledBorder(),
-                                  focusedBorder: _focusedBorder(),
-                                  errorBorder: _errorBorder(),
-                                  focusedErrorBorder: _errorBorder(focused: true),
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                  fillColor: DesignTokens.background,
+                                  border: DesignTokens.inputBorder,
+                                  enabledBorder: DesignTokens.inputEnabledBorder,
+                                  focusedBorder: DesignTokens.inputFocusedBorder,
+                                  errorBorder: DesignTokens.inputErrorBorder,
+                                  focusedErrorBorder:
+                                      DesignTokens.inputErrorFocusedBorder,
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: DesignTokens.spacing16,
+                                    vertical: 14,
+                                  ),
                                 ),
                                 obscureText: _obscure,
                                 autofillHints: const [AutofillHints.password],
@@ -199,9 +213,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 enabled: !isLoading,
                                 onFieldSubmitted: (_) => _submit(),
                               ),
-                              const SizedBox(height: 24),
+                              const SizedBox(height: DesignTokens.spacing24),
 
-                              // Submit
+                              // Submit Button
                               SizedBox(
                                 height: 52,
                                 child: ElevatedButton.icon(
@@ -212,23 +226,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                           width: 18,
                                           child: CircularProgressIndicator(
                                             strokeWidth: 2,
-                                            color: Colors.white,
+                                            color: DesignTokens.onPrimary,
                                           ),
                                         )
                                       : const Icon(Icons.login_rounded, size: 20),
                                   label: Text(
                                     isLoading ? 'Memproses...' : 'Masuk',
-                                    style: const TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w700,
-                                    ),
+                                    style: DesignTokens.buttonText,
                                   ),
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF002B5B),
-                                    foregroundColor: Colors.white,
-                                    disabledBackgroundColor: const Color(0xFF002B5B).withAlpha(120),
+                                    backgroundColor: DesignTokens.primary,
+                                    foregroundColor: DesignTokens.onPrimary,
+                                    disabledBackgroundColor:
+                                        DesignTokens.primary.withAlpha(120),
                                     shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(10),
+                                      borderRadius: DesignTokens.radius8,
                                     ),
                                     elevation: 0,
                                   ),
@@ -239,15 +251,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ),
                       ),
 
-                      // ── Face registration banner ────────────────────
+                      // ── Face Registration Banner ────────
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: DesignTokens.spacing24,
+                          vertical: DesignTokens.spacing20,
+                        ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFECEEF0),
+                          color: DesignTokens.surfaceContainer,
                           border: Border(
-                            top: BorderSide(
-                              color: const Color(0xFFC4C6D0).withAlpha(80),
-                            ),
+                            top: BorderSide(color: DesignTokens.outlineVariant, width: 1),
                           ),
                           borderRadius: const BorderRadius.vertical(
                             bottom: Radius.circular(16),
@@ -259,55 +272,49 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               width: 40,
                               height: 40,
                               decoration: const BoxDecoration(
-                                color: Color(0xFF47FBEB),
+                                color: DesignTokens.cyanAccent,
                                 shape: BoxShape.circle,
                               ),
-                              child: const Icon(
-                                Icons.face_unlock_rounded,
-                                size: 22,
-                                color: Color(0xFF002B5B),
-                              ),
+                              child: const Icon(Icons.face_unlock_rounded,
+                                  size: 22, color: DesignTokens.primary),
                             ),
-                            const SizedBox(width: 12),
+                            const SizedBox(width: DesignTokens.spacing12),
                             const Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
                                     'Presensi Wajah',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      color: Color(0xFF191C1E),
-                                    ),
+                                    style: DesignTokens.caption,
                                   ),
                                   Text(
                                     'Belum terdaftar?',
-                                    style: TextStyle(fontSize: 11, color: Color(0xFF43474F)),
+                                    style: DesignTokens.smallText,
                                   ),
                                 ],
                               ),
                             ),
-                            OutlinedButton(
-                              onPressed: () => context.go('/nisn-verify'),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: const Color(0xFF002B5B),
-                                side: BorderSide(
-                                  color: const Color(0xFFC4C6D0).withAlpha(130),
+                            // ✅ FIX BLUNDER #1: Layout — Expanded gives finite constraint in Row
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () => context.go('/nisn-verify'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: DesignTokens.primary,
+                                  side: BorderSide(
+                                      color: DesignTokens.outlineVariant, width: 1),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: DesignTokens.spacing16,
+                                    vertical: 10,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: DesignTokens.radius8,
+                                  ),
+                                  textStyle: DesignTokens.smallText.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 10,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                textStyle: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                                child: const Text('Daftar Sekarang'),
                               ),
-                              child: const Text('Daftar Sekarang'),
                             ),
                           ],
                         ),
@@ -315,17 +322,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: DesignTokens.spacing24),
 
-                // ── Footer ─────────────────────────────────────────────
+                // ── Footer ─────────────────────────────
                 const Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.info_outline, size: 16, color: Color(0xFF747780)),
-                    SizedBox(width: 6),
+                    Icon(Icons.info_outline,
+                        size: 16, color: DesignTokens.iconDefault),
+                    SizedBox(width: DesignTokens.spacing8),
                     Text(
                       'Butuh bantuan? Hubungi Admin IT.',
-                      style: TextStyle(fontSize: 12, color: Color(0xFF747780)),
+                      style: DesignTokens.smallText,
                     ),
                   ],
                 ),
@@ -345,49 +353,24 @@ class _FieldLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
         text,
-        style: const TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.8,
-          color: Color(0xFF43474F),
-        ),
+        style: DesignTokens.labelCaps,
       );
 }
 
 InputDecoration _inputDeco({required String hint, required IconData icon}) =>
     InputDecoration(
       hintText: hint,
-      hintStyle: const TextStyle(color: Color(0xFF9EA3AB), fontSize: 14),
-      prefixIcon: Icon(icon, size: 20, color: const Color(0xFF747780)),
+      hintStyle: DesignTokens.bodySm.copyWith(color: DesignTokens.hintText),
+      prefixIcon: Icon(icon, size: 20, color: DesignTokens.iconDefault),
       filled: true,
-      fillColor: const Color(0xFFF7F9FB),
-      border: _border(),
-      enabledBorder: _enabledBorder(),
-      focusedBorder: _focusedBorder(),
-      errorBorder: _errorBorder(),
-      focusedErrorBorder: _errorBorder(focused: true),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-    );
-
-OutlineInputBorder _border() => OutlineInputBorder(
-      borderRadius: BorderRadius.circular(10),
-      borderSide: const BorderSide(color: Color(0xFFC4C6D0)),
-    );
-
-OutlineInputBorder _enabledBorder() => OutlineInputBorder(
-      borderRadius: BorderRadius.circular(10),
-      borderSide: BorderSide(color: const Color(0xFFC4C6D0).withAlpha(130)),
-    );
-
-OutlineInputBorder _focusedBorder() => OutlineInputBorder(
-      borderRadius: BorderRadius.circular(10),
-      borderSide: const BorderSide(color: Color(0xFF006A63), width: 1.5),
-    );
-
-OutlineInputBorder _errorBorder({bool focused = false}) => OutlineInputBorder(
-      borderRadius: BorderRadius.circular(10),
-      borderSide: BorderSide(
-        color: Colors.red,
-        width: focused ? 1.5 : 1.0,
+      fillColor: DesignTokens.background,
+      border: DesignTokens.inputBorder,
+      enabledBorder: DesignTokens.inputEnabledBorder,
+      focusedBorder: DesignTokens.inputFocusedBorder,
+      errorBorder: DesignTokens.inputErrorBorder,
+      focusedErrorBorder: DesignTokens.inputErrorFocusedBorder,
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: DesignTokens.spacing16,
+        vertical: 14,
       ),
     );

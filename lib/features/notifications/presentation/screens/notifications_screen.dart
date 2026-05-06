@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/constants/colors.dart';
-import '../../../../core/constants/spacing.dart';
-import '../../../../shared/widgets/gradient_background.dart';
 import '../../data/dummy_notifications.dart';
 
 class NotificationsScreen extends StatefulWidget {
@@ -29,37 +26,51 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF7F9FB),
       appBar: AppBar(
-        title: const Text('Notifikasi'),
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        foregroundColor: const Color(0xFF191C1E),
+        elevation: 0,
+        title: const Text(
+          'Notifikasi',
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF191C1E),
+          ),
+        ),
         actions: [
           if (_unreadCount > 0)
             TextButton(
               onPressed: _markAllRead,
               child: const Text(
                 'Tandai Semua',
-                style: TextStyle(color: AppColors.accent, fontSize: 13),
+                style: TextStyle(
+                  color: Color(0xFF006A63),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
         ],
       ),
-      body: GradientBackground(
-        child: kDummyNotifications.isEmpty
-            ? const _EmptyState()
-            : ListView.separated(
-                padding: const EdgeInsets.symmetric(vertical: Spacing.xs),
-                itemCount: kDummyNotifications.length,
-                separatorBuilder: (_, __) => const Divider(
-                  height: 1,
-                  indent: 72,
-                  color: AppColors.surfaceAlt,
-                ),
-                itemBuilder: (_, i) => _NotificationItem(
-                  notification: kDummyNotifications[i],
-                  isRead: _readStates[i],
-                  onTap: () => setState(() => _readStates[i] = true),
-                ),
+      body: kDummyNotifications.isEmpty
+          ? const _EmptyState()
+          : ListView.separated(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemCount: kDummyNotifications.length,
+              separatorBuilder: (_, __) => const Divider(
+                height: 1,
+                indent: 72,
+                color: Color(0xFFE6E8EA),
               ),
-      ),
+              itemBuilder: (_, i) => _NotificationItem(
+                notification: kDummyNotifications[i],
+                isRead: _readStates[i],
+                onTap: () => setState(() => _readStates[i] = true),
+              ),
+            ),
     );
   }
 }
@@ -91,11 +102,11 @@ class _NotificationItem extends StatelessWidget {
   Color get _iconColor {
     switch (notification.type) {
       case NotificationType.attendance:
-        return AppColors.success;
+        return const Color(0xFF16A34A);
       case NotificationType.leave:
-        return AppColors.secondary;
+        return const Color(0xFF006A63);
       case NotificationType.system:
-        return AppColors.accent;
+        return const Color(0xFF5B4300);
     }
   }
 
@@ -116,9 +127,10 @@ class _NotificationItem extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Container(
-        color: isRead ? Colors.transparent : AppColors.accent.withAlpha(10),
-        padding: const EdgeInsets.symmetric(
-            horizontal: Spacing.md, vertical: Spacing.sm),
+        color: isRead
+            ? Colors.transparent
+            : const Color(0xFF006A63).withValues(alpha: 0.05),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -126,12 +138,12 @@ class _NotificationItem extends StatelessWidget {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: _iconColor.withAlpha(31),
+                color: _iconColor.withValues(alpha: 0.12),
                 shape: BoxShape.circle,
               ),
               child: Icon(_icon, color: _iconColor, size: 20),
             ),
-            const SizedBox(width: Spacing.sm),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -142,7 +154,7 @@ class _NotificationItem extends StatelessWidget {
                         child: Text(
                           notification.title,
                           style: TextStyle(
-                            color: AppColors.textPrimary,
+                            color: const Color(0xFF191C1E),
                             fontWeight: isRead
                                 ? FontWeight.w500
                                 : FontWeight.w700,
@@ -156,7 +168,7 @@ class _NotificationItem extends StatelessWidget {
                           height: 8,
                           decoration: const BoxDecoration(
                             shape: BoxShape.circle,
-                            color: AppColors.accent,
+                            color: Color(0xFF006A63),
                           ),
                         ),
                     ],
@@ -165,7 +177,7 @@ class _NotificationItem extends StatelessWidget {
                   Text(
                     notification.body,
                     style: const TextStyle(
-                        color: AppColors.textSecondary, fontSize: 12),
+                        color: Color(0xFF43474F), fontSize: 12),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -173,7 +185,7 @@ class _NotificationItem extends StatelessWidget {
                   Text(
                     _timeAgo(notification.time),
                     style: const TextStyle(
-                        color: AppColors.textHint, fontSize: 11),
+                        color: Color(0xFF747780), fontSize: 11),
                   ),
                 ],
               ),
@@ -197,11 +209,10 @@ class _EmptyState extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.notifications_none_rounded,
-              size: 64, color: AppColors.textHint),
-          SizedBox(height: Spacing.sm),
+              size: 64, color: Color(0xFFC4C6D0)),
+          SizedBox(height: 12),
           Text('Tidak ada notifikasi.',
-              style:
-                  TextStyle(color: AppColors.textSecondary, fontSize: 14)),
+              style: TextStyle(color: Color(0xFF43474F), fontSize: 14)),
         ],
       ),
     );

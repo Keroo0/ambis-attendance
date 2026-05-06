@@ -217,7 +217,13 @@ class _EnrollmentScreenState extends ConsumerState<EnrollmentScreen>
                   child: Row(
                     children: [
                       GestureDetector(
-                        onTap: () => context.go('/welcome'),
+                        onTap: () {
+                          if (Navigator.canPop(context)) {
+                            context.pop();
+                          } else {
+                            context.go('/dashboard');
+                          }
+                        },
                         child: Container(
                           width: 40,
                           height: 40,

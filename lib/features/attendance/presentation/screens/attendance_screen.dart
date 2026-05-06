@@ -17,7 +17,9 @@ import '../../../../core/services/location_service.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../enrollment/data/repositories/face_repository.dart';
 import '../../data/repositories/attendance_repository.dart';
+import '../../data/services/geofence_settings_service.dart';
 import '../providers/rate_limit_provider.dart';
+import '../../../enrollment/presentation/providers/face_enrollment_provider.dart';
 
 enum _LivenessState { waitingBlink, passed }
 
@@ -128,17 +130,21 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen>
 
   Future<void> _initLocation() async {
     try {
-      final loc = ref.read(locationServiceProvider);
-      final pos = await loc.getCurrentPosition();
-      if (!mounted) return;
-      if (!LocationService.isWithinGeofence(pos)) {
-        final d = LocationService.distanceToSchool(pos);
+      final settings = await ref.read(geofenceSettingsProvider.future);
+
+      if (!settings.enabled) {
+        if (!mounted) return;
         setState(() {
-          _locState = _LocationState.error;
-          _locMsg = '${d.toStringAsFixed(0)} m dari sekolah (maks 50 m)';
+          _locState = _LocationState.ok;
+          _locMsg = 'Lokasi absensi dinonaktifkan (bypass)';
         });
         return;
       }
+
+      final loc = ref.read(locationServiceProvider);
+      final pos = await loc.getCurrentPosition();
+      if (!mounted) return;
+
       if (LocationService.isMocked(pos)) {
         setState(() {
           _locState = _LocationState.error;
@@ -146,6 +152,23 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen>
         });
         return;
       }
+
+      final dist = LocationService.haversineMeters(
+        pos.latitude,
+        pos.longitude,
+        settings.lat,
+        settings.lng,
+      );
+
+      if (dist > settings.radius) {
+        setState(() {
+          _locState = _LocationState.error;
+          _locMsg =
+              '${dist.toStringAsFixed(0)} m dari sekolah (maks ${settings.radius.toStringAsFixed(0)} m)';
+        });
+        return;
+      }
+
       setState(() {
         _position = pos;
         _locState = _LocationState.ok;
@@ -423,46 +446,61 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen>
   Widget build(BuildContext context) {
     final canSubmit = !_scanning && _locState == _LocationState.ok;
 
+    final user = ref.watch(authProvider).valueOrNull;
+    final enrolledAsync = user != null
+        ? ref.watch(hasEnrolledFaceProvider(user.id))
+        : const AsyncValue<bool>.data(false);
+
     return Scaffold(
       backgroundColor: const Color(0xFFF7F9FB),
       body: SafeArea(
-        child: Column(
-          children: [
-            // ── TopBar ───────────────────────────────────────────────
-            Container(
-              height: 64,
-              color: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  const Icon(Icons.school_rounded,
-                      color: Color(0xFF002B5B), size: 24),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'SMAN 07 Tangerang',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF001736),
-                    ),
+        child: enrolledAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (_, __) => const Center(
+              child: Text('Gagal memeriksa status pendaftaran wajah')),
+          data: (enrolled) {
+            if (!enrolled) {
+              return _NotEnrolledView(
+                onRegister: () => context.push('/enrollment'),
+              );
+            }
+            return Column(
+              children: [
+                // ── TopBar ───────────────────────────────────────────────
+                Container(
+                  height: 64,
+                  color: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.school_rounded,
+                          color: Color(0xFF002B5B), size: 24),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'SMAN 07 Tangerang',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF001736),
+                        ),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        onPressed: () {},
+                        icon: const Icon(Icons.notifications_outlined,
+                            color: Color(0xFF002B5B)),
+                      ),
+                    ],
                   ),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: () {},
-                    icon: const Icon(Icons.notifications_outlined,
-                        color: Color(0xFF002B5B)),
-                  ),
-                ],
-              ),
-            ),
+                ),
 
-            // ── Content ──────────────────────────────────────────────
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Column(
-                  children: [
-                    const SizedBox(height: 20),
+                // ── Content ──────────────────────────────────────────────
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 20),
 
                     // Title
                     const Text(
@@ -557,8 +595,10 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen>
                   ],
                 ),
               ),
-            ),
-          ],
+                ),  // closes Expanded
+              ],    // closes Column children
+            );      // closes return Column
+          },
         ),
       ),
     );
@@ -987,4 +1027,49 @@ class _CornerPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter old) => false;
+}
+
+// ── Not Enrolled View ───────────────────────────────────────────────
+
+class _NotEnrolledView extends StatelessWidget {
+  const _NotEnrolledView({required this.onRegister});
+  final VoidCallback onRegister;
+
+  @override
+  Widget build(BuildContext context) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.face_retouching_off,
+                  size: 64, color: Color(0xFF747780)),
+              const SizedBox(height: 16),
+              const Text('NISN ini belum terdaftar',
+                  style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF191C1E))),
+              const SizedBox(height: 8),
+              const Text('Daftarkan wajah Anda untuk bisa absen',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 13, color: Color(0xFF747780))),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: onRegister,
+                icon: const Icon(Icons.app_registration),
+                label: const Text('Daftar Sekarang'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF001736),
+                  foregroundColor: Colors.white,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
 }

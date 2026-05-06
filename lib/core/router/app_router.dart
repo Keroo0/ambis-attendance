@@ -21,19 +21,6 @@ import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../shared/widgets/app_shell.dart';
 import '../database/app_database.dart';
 
-/// Polls the local DB for whether [userId] has an active face embedding.
-/// Cached so the router doesn't query on every redirect.
-final hasEnrolledFaceProvider =
-    FutureProvider.family<bool, String>((ref, userId) async {
-  final db = ref.watch(appDatabaseProvider);
-  final row = await (db.select(db.faceEmbeddings)
-        ..where((e) => e.studentId.equals(userId))
-        ..where((e) => e.isActive.equals(true))
-        ..limit(1))
-      .getSingleOrNull();
-  return row != null;
-});
-
 class _AuthRouterListenable extends ChangeNotifier {
   _AuthRouterListenable(this._ref) {
     _sub = _ref.listen<AsyncValue<UserEntity?>>(
@@ -166,7 +153,6 @@ GoRouter buildRouter(Ref ref) {
         return '/welcome';
       }
 
-      // Logged in. Now check enrollment for siswa role only.
       if (user.role == 'ortu') {
         const authOnlyRoutes = {
           '/login', '/splash', '/welcome', '/parent-login', '/nisn-verify',
@@ -184,23 +170,9 @@ GoRouter buildRouter(Ref ref) {
         return null;
       }
 
-      final enrolled =
-          ref.read(hasEnrolledFaceProvider(user.id)).valueOrNull;
-      // While enrollment query is loading, keep current page (avoid flicker).
-      if (enrolled == null) {
-        if (loc == '/login' || loc == '/splash') return '/dashboard';
-        return null;
-      }
-
-      if (!enrolled && loc != '/enrollment') {
-        return '/enrollment';
-      }
-      if (enrolled &&
-          (loc == '/login' ||
-              loc == '/splash' ||
-              loc == '/welcome' ||
-              loc == '/parent-login' ||
-              loc == '/nisn-verify')) {
+      // Logged-in siswa should not be on guest/public routes
+      const guestRoutes = {'/login', '/splash', '/welcome', '/parent-login', '/nisn-verify'};
+      if (guestRoutes.contains(loc)) {
         return '/dashboard';
       }
       return null;

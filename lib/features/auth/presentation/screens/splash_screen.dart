@@ -28,10 +28,10 @@ class SplashScreen extends ConsumerWidget {
               SizedBox(height: Spacing.md),
               Text(
                 'SMAN 07 Kabupaten Tangerang',
-                style: TextStyle(color: AppColors.textSecondary),
+                style: TextStyle(color: AppColors.darkTextSecondary),
               ),
               SizedBox(height: Spacing.lg),
-              CircularProgressIndicator(color: AppColors.accent),
+              CircularProgressIndicator(color: AppColors.darkAccent),
             ],
           ),
         ),

@@ -26,7 +26,7 @@ class WelcomeScreen extends StatelessWidget {
               const Text(
                 'AMBIS',
                 style: TextStyle(
-                  color: AppColors.background,
+                  color: AppColors.primary,
                   fontSize: 26,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 0.5,
@@ -71,7 +71,7 @@ class WelcomeScreen extends StatelessWidget {
                     style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.background,
+                    backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
@@ -94,8 +94,8 @@ class WelcomeScreen extends StatelessWidget {
                     style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
                   ),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.background,
-                    side: const BorderSide(color: AppColors.background, width: 1.5),
+                    foregroundColor: AppColors.primary,
+                    side: const BorderSide(color: AppColors.primary, width: 1.5),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
@@ -144,12 +144,12 @@ class WelcomeScreen extends StatelessWidget {
                           width: 36,
                           height: 36,
                           decoration: BoxDecoration(
-                            color: AppColors.accent.withAlpha(30),
+                            color: AppColors.tertiaryFixedDim.withAlpha(30),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(
                             Icons.face_retouching_natural_rounded,
-                            color: AppColors.accent,
+                            color: AppColors.tertiaryFixedDim,
                             size: 20,
                           ),
                         ),
@@ -161,7 +161,7 @@ class WelcomeScreen extends StatelessWidget {
                               Text(
                                 'Belum Terdaftar?',
                                 style: TextStyle(
-                                  color: AppColors.background,
+                                  color: AppColors.primary,
                                   fontWeight: FontWeight.w700,
                                   fontSize: 13,
                                 ),

@@ -11,7 +11,7 @@ import '../../../../core/database/app_database.dart';
 import '../../../../core/exceptions/app_exception.dart';
 
 const Uuid _uuid = Uuid();
-const _kBucketName = 'leave-attachments';
+const _kBucketName = 'leave-documents';
 const int _kMaxBytes = 1024 * 1024; // 1 MB
 
 String _formatDate(DateTime d) =>

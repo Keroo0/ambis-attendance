@@ -44,7 +44,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
   Timer? _livenessTimeoutTimer;
   bool _busy = false;
   String _status = 'Mempersiapkan kamera...';
-  Color _statusColor = AppColors.textPrimary;
+  Color _statusColor = AppColors.darkTextPrimary;
   _LivenessState _livenessState = _LivenessState.waitingBlink;
   int _failCount = 0;
   bool _handlingFailure = false;
@@ -113,7 +113,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
     _livenessTimeoutTimer?.cancel();
 
     if (_livenessState == _LivenessState.waitingBlink) {
-      _setStatus('Kedipkan mata Anda', AppColors.warning);
+      _setStatus('Kedipkan mata Anda', AppColors.darkWarning);
       // Jika tidak ada kedipan dalam 8 detik, hitung sebagai kegagalan.
       _livenessTimeoutTimer = Timer(
         const Duration(seconds: 8),
@@ -167,23 +167,23 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
     if (left != null && right != null && left < 0.3 && right < 0.3) {
       _livenessTimeoutTimer?.cancel();
       setState(() => _livenessState = _LivenessState.passed);
-      _setStatus('Liveness OK, mencocokkan wajah...', AppColors.primary);
+      _setStatus('Liveness OK, mencocokkan wajah...', AppColors.darkPrimary);
     }
   }
 
   /// Pencocokan wajah — dijalankan hanya setelah liveness lolos.
   Future<void> _checkFace(List<mlk.Face> faces, String imagePath) async {
     if (faces.isEmpty) {
-      _setStatus('Wajah tidak terdeteksi', AppColors.warning);
+      _setStatus('Wajah tidak terdeteksi', AppColors.darkWarning);
       return;
     }
     if (faces.length > 1) {
-      _setStatus('Pastikan hanya satu wajah', AppColors.warning);
+      _setStatus('Pastikan hanya satu wajah', AppColors.darkWarning);
       return;
     }
     final face = faces.first;
     if (!_isFrontal(face)) {
-      _setStatus('Hadap lurus ke kamera', AppColors.warning);
+      _setStatus('Hadap lurus ke kamera', AppColors.darkWarning);
       return;
     }
 
@@ -221,7 +221,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
 
     setState(() {
       _status = 'Menyimpan...';
-      _statusColor = AppColors.textPrimary;
+      _statusColor = AppColors.darkTextPrimary;
     });
 
     try {
@@ -237,7 +237,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
         _status = widget.kind == AttendanceKind.checkIn
             ? 'Berhasil absen masuk!'
             : 'Berhasil absen pulang!';
-        _statusColor = AppColors.success;
+        _statusColor = AppColors.darkSuccess;
       });
       await Future<void>.delayed(const Duration(milliseconds: 900));
       if (!mounted) return;
@@ -260,7 +260,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
     ref.read(rateLimitProvider.notifier).recordFailure();
     _failCount++;
 
-    _setStatus(message, AppColors.error);
+    _setStatus(message, AppColors.darkError);
 
     if (_failCount >= 3) {
       // Tampilkan dialog setelah frame selesai dirender.
@@ -283,14 +283,14 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
       context: context,
       barrierDismissible: false,
       builder: (_) => AlertDialog(
-        backgroundColor: AppColors.surface,
+        backgroundColor: AppColors.darkSurface,
         title: const Text(
           'Verifikasi Gagal',
-          style: TextStyle(color: AppColors.textPrimary),
+          style: TextStyle(color: AppColors.darkTextPrimary),
         ),
         content: const Text(
           'Silakan hubungi guru untuk validasi manual kehadiran Anda.',
-          style: TextStyle(color: AppColors.textSecondary),
+          style: TextStyle(color: AppColors.darkTextSecondary),
         ),
         actions: [
           TextButton(
@@ -305,7 +305,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
             },
             child: const Text(
               'Coba Lagi',
-              style: TextStyle(color: AppColors.secondary),
+              style: TextStyle(color: AppColors.darkSecondary),
             ),
           ),
           TextButton(
@@ -315,7 +315,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
             },
             child: const Text(
               'Minta Validasi Guru',
-              style: TextStyle(color: AppColors.accent),
+              style: TextStyle(color: AppColors.darkAccent),
             ),
           ),
         ],
