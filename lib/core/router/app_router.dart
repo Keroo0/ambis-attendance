@@ -15,6 +15,8 @@ import '../../features/grades/presentation/screens/grades_screen.dart';
 import '../../features/history/presentation/screens/history_screen.dart';
 import '../../features/leave_request/presentation/screens/leave_request_screen.dart';
 import '../../features/notifications/presentation/screens/notifications_screen.dart';
+import '../../features/parent/presentation/screens/parent_attendance_history_screen.dart';
+import '../../features/parent/presentation/screens/parent_dashboard_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../shared/widgets/app_shell.dart';
 import '../database/app_database.dart';
@@ -103,6 +105,14 @@ GoRouter buildRouter(Ref ref) {
         path: '/history',
         builder: (_, __) => const HistoryScreen(),
       ),
+      GoRoute(
+        path: '/parent-dashboard',
+        builder: (_, __) => const ParentDashboardScreen(),
+      ),
+      GoRoute(
+        path: '/parent-history',
+        builder: (_, __) => const ParentAttendanceHistoryScreen(),
+      ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
             AppShell(navigationShell: navigationShell),
@@ -157,6 +167,17 @@ GoRouter buildRouter(Ref ref) {
       }
 
       // Logged in. Now check enrollment for siswa role only.
+      if (user.role == 'ortu') {
+        const authOnlyRoutes = {
+          '/login', '/splash', '/welcome', '/parent-login', '/nisn-verify',
+        };
+        if (authOnlyRoutes.contains(loc)) return '/parent-dashboard';
+        if (loc == '/enrollment' || loc.startsWith('/enroll-face/')) {
+          return '/parent-dashboard';
+        }
+        return null;
+      }
+
       if (user.role != 'siswa') {
         const authOnlyRoutes = {'/login', '/splash', '/welcome', '/parent-login', '/nisn-verify'};
         if (authOnlyRoutes.contains(loc)) return '/dashboard';
