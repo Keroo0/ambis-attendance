@@ -1,30 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../data/dummy_notifications.dart';
+import '../../data/models/notification_model.dart';
+import '../providers/notifications_provider.dart';
 
-class NotificationsScreen extends StatefulWidget {
+class NotificationsScreen extends ConsumerWidget {
   const NotificationsScreen({super.key});
 
   @override
-  State<NotificationsScreen> createState() => _NotificationsScreenState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(notificationsProvider);
 
-class _NotificationsScreenState extends State<NotificationsScreen> {
-  late List<bool> _readStates;
-
-  @override
-  void initState() {
-    super.initState();
-    _readStates = kDummyNotifications.map((n) => n.isRead).toList();
-  }
-
-  int get _unreadCount => _readStates.where((r) => !r).length;
-
-  void _markAllRead() =>
-      setState(() => _readStates = List.filled(_readStates.length, true));
-
-  @override
-  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF7F9FB),
       appBar: AppBar(
@@ -41,36 +27,70 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           ),
         ),
         actions: [
-          if (_unreadCount > 0)
-            TextButton(
-              onPressed: _markAllRead,
-              child: const Text(
-                'Tandai Semua',
-                style: TextStyle(
-                  color: Color(0xFF006A63),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
+          async.whenOrNull(
+            data: (list) {
+              final unread = list.where((n) => !n.isRead).length;
+              if (unread == 0) return null;
+              return TextButton(
+                onPressed: () =>
+                    ref.read(notificationsProvider.notifier).markAllAsRead(),
+                child: const Text(
+                  'Tandai Semua',
+                  style: TextStyle(
+                    color: Color(0xFF006A63),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              ),
-            ),
+              );
+            },
+          ) ?? const SizedBox.shrink(),
         ],
       ),
-      body: kDummyNotifications.isEmpty
-          ? const _EmptyState()
-          : ListView.separated(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              itemCount: kDummyNotifications.length,
-              separatorBuilder: (_, __) => const Divider(
-                height: 1,
-                indent: 72,
-                color: Color(0xFFE6E8EA),
+      body: async.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline_rounded,
+                  size: 48, color: Color(0xFFC4C6D0)),
+              const SizedBox(height: 12),
+              Text(
+                'Gagal memuat notifikasi',
+                style: const TextStyle(
+                    color: Color(0xFF43474F), fontSize: 14),
               ),
-              itemBuilder: (_, i) => _NotificationItem(
-                notification: kDummyNotifications[i],
-                isRead: _readStates[i],
-                onTap: () => setState(() => _readStates[i] = true),
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: () => ref.invalidate(notificationsProvider),
+                child: const Text('Coba Lagi',
+                    style: TextStyle(color: Color(0xFF006A63))),
               ),
-            ),
+            ],
+          ),
+        ),
+        data: (list) => list.isEmpty
+            ? const _EmptyState()
+            : ListView.separated(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                itemCount: list.length,
+                separatorBuilder: (_, __) => const Divider(
+                  height: 1,
+                  indent: 72,
+                  color: Color(0xFFE6E8EA),
+                ),
+                itemBuilder: (_, i) {
+                  final n = list[i];
+                  return _NotificationItem(
+                    notification: n,
+                    onTap: () => ref
+                        .read(notificationsProvider.notifier)
+                        .markAsRead(n.id),
+                  );
+                },
+              ),
+      ),
     );
   }
 }
@@ -80,32 +100,38 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 class _NotificationItem extends StatelessWidget {
   const _NotificationItem({
     required this.notification,
-    required this.isRead,
     required this.onTap,
   });
 
-  final DummyNotification notification;
-  final bool isRead;
+  final AppNotification notification;
   final VoidCallback onTap;
 
   IconData get _icon {
     switch (notification.type) {
-      case NotificationType.attendance:
+      case AppNotificationType.attendance:
         return Icons.fingerprint_rounded;
-      case NotificationType.leave:
+      case AppNotificationType.leave:
         return Icons.description_outlined;
-      case NotificationType.system:
+      case AppNotificationType.grade:
+        return Icons.school_outlined;
+      case AppNotificationType.announcement:
+        return Icons.campaign_outlined;
+      case AppNotificationType.system:
         return Icons.notifications_outlined;
     }
   }
 
   Color get _iconColor {
     switch (notification.type) {
-      case NotificationType.attendance:
+      case AppNotificationType.attendance:
         return const Color(0xFF16A34A);
-      case NotificationType.leave:
+      case AppNotificationType.leave:
         return const Color(0xFF006A63);
-      case NotificationType.system:
+      case AppNotificationType.grade:
+        return const Color(0xFF1E66F5);
+      case AppNotificationType.announcement:
+        return const Color(0xFFD97706);
+      case AppNotificationType.system:
         return const Color(0xFF5B4300);
     }
   }
@@ -124,6 +150,7 @@ class _NotificationItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isRead = notification.isRead;
     return InkWell(
       onTap: onTap,
       child: Container(
@@ -155,9 +182,8 @@ class _NotificationItem extends StatelessWidget {
                           notification.title,
                           style: TextStyle(
                             color: const Color(0xFF191C1E),
-                            fontWeight: isRead
-                                ? FontWeight.w500
-                                : FontWeight.w700,
+                            fontWeight:
+                                isRead ? FontWeight.w500 : FontWeight.w700,
                             fontSize: 13,
                           ),
                         ),
@@ -183,7 +209,7 @@ class _NotificationItem extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    _timeAgo(notification.time),
+                    _timeAgo(notification.createdAt),
                     style: const TextStyle(
                         color: Color(0xFF747780), fontSize: 11),
                   ),

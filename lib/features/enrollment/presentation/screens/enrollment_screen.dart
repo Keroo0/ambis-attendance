@@ -354,15 +354,15 @@ class _EnrollmentScreenState extends ConsumerState<EnrollmentScreen>
 
           // Circular viewfinder
           SizedBox(
-            width: 256,
-            height: 256,
+            width: 300,
+            height: 300,
             child: Stack(
               alignment: Alignment.center,
               children: [
                 // Outer ring
                 Container(
-                  width: 256,
-                  height: 256,
+                  width: 300,
+                  height: 300,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(
@@ -374,7 +374,7 @@ class _EnrollmentScreenState extends ConsumerState<EnrollmentScreen>
                 // Camera preview clipped to circle
                 ClipOval(
                   child: SizedBox.square(
-                    dimension: 240,
+                    dimension: 284,
                     child: _controller != null
                         ? CameraPreview(_controller!)
                         : Container(color: const Color(0xFFECEEF0)),
@@ -384,13 +384,13 @@ class _EnrollmentScreenState extends ConsumerState<EnrollmentScreen>
                 if (!isDone)
                   ClipOval(
                     child: SizedBox.square(
-                      dimension: 240,
+                      dimension: 284,
                       child: AnimatedBuilder(
                         animation: _scanAnim,
                         builder: (_, __) => Stack(
                           children: [
                             Positioned(
-                              top: 240 * _scanAnim.value - 30,
+                              top: 284 * _scanAnim.value - 30,
                               left: 0,
                               right: 0,
                               height: 40,
@@ -415,7 +415,7 @@ class _EnrollmentScreenState extends ConsumerState<EnrollmentScreen>
                   ),
                 // Reticle tick marks
                 CustomPaint(
-                  size: const Size(256, 256),
+                  size: const Size(300, 300),
                   painter: _ReticlePainter(),
                 ),
               ],

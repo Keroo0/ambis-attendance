@@ -2,16 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../data/repositories/parent_repository.dart';
+import '../providers/parent_provider.dart';
 
 class ParentDashboardScreen extends ConsumerWidget {
   const ParentDashboardScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final user = ref.watch(authProvider).valueOrNull;
-    final name = user?.fullname ?? 'Siswa';
-    final nisn = user?.nisn ?? '-';
+    final childAsync = ref.watch(childInfoProvider);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F9FB),
@@ -40,7 +39,8 @@ class ParentDashboardScreen extends ConsumerWidget {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.notifications_outlined, color: Color(0xFF747780)),
+            icon: const Icon(Icons.notifications_outlined,
+                color: Color(0xFF747780)),
             onPressed: () {},
           ),
           const SizedBox(width: 4),
@@ -50,48 +50,63 @@ class ParentDashboardScreen extends ConsumerWidget {
           child: Divider(height: 1, color: Color(0xFFE2E8F0)),
         ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-        children: [
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  flex: 2,
-                  child: _ProfileCard(name: name, nisn: nisn),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _AttendanceCard(
-                    onTap: () => context.push('/parent-history'),
-                  ),
-                ),
-              ],
-            ),
+      body: childAsync.when(
+        loading: () =>
+            const Center(child: CircularProgressIndicator()),
+        error: (_, __) => Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline_rounded,
+                  size: 48, color: Color(0xFFC4C6D0)),
+              const SizedBox(height: 12),
+              const Text('Gagal memuat data anak.',
+                  style: TextStyle(color: Color(0xFF43474F))),
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: () => ref.invalidate(childInfoProvider),
+                child: const Text('Coba Lagi',
+                    style: TextStyle(color: Color(0xFF006A63))),
+              ),
+            ],
           ),
-          const SizedBox(height: 16),
-          const _GradesSummaryCard(),
-        ],
+        ),
+        data: (child) => child == null
+            ? const _NoChildState()
+            : ListView(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+                children: [
+                  IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(
+                          flex: 2,
+                          child: _ProfileCard(child: child),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _AttendanceCard(
+                            onTap: () => context.push('/parent-history'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _GradesSummaryCard(child: child),
+                ],
+              ),
       ),
     );
   }
 }
 
-// ── Profile Card ─────────────────────────────────────────────────────────────
+// ── Profile Card ──────────────────────────────────────────────────────────────
 
 class _ProfileCard extends StatelessWidget {
-  const _ProfileCard({required this.name, required this.nisn});
-
-  final String name;
-  final String nisn;
-
-  String get _initials {
-    final parts = name.trim().split(' ').where((s) => s.isNotEmpty).toList();
-    if (parts.isEmpty) return '?';
-    if (parts.length == 1) return parts[0][0].toUpperCase();
-    return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
-  }
+  const _ProfileCard({required this.child});
+  final ChildStudentInfo child;
 
   @override
   Widget build(BuildContext context) {
@@ -102,7 +117,8 @@ class _ProfileCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFC4C6D0)),
         boxShadow: const [
-          BoxShadow(color: Color(0x05000000), blurRadius: 4, offset: Offset(0, 2)),
+          BoxShadow(
+              color: Color(0x05000000), blurRadius: 4, offset: Offset(0, 2)),
         ],
       ),
       child: IntrinsicHeight(
@@ -120,7 +136,7 @@ class _ProfileCard extends StatelessWidget {
                       radius: 30,
                       backgroundColor: const Color(0xFFD6E3FF),
                       child: Text(
-                        _initials,
+                        child.initials,
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
@@ -135,7 +151,7 @@ class _ProfileCard extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            name,
+                            child.fullname,
                             style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
@@ -145,14 +161,14 @@ class _ProfileCard extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 4),
-                          const Row(
+                          Row(
                             children: [
-                              Icon(Icons.badge_outlined,
+                              const Icon(Icons.badge_outlined,
                                   size: 12, color: Color(0xFF43474F)),
-                              SizedBox(width: 3),
+                              const SizedBox(width: 3),
                               Text(
-                                'XI IPA 1',
-                                style: TextStyle(
+                                child.className,
+                                style: const TextStyle(
                                     fontSize: 11, color: Color(0xFF43474F)),
                               ),
                             ],
@@ -165,9 +181,10 @@ class _ProfileCard extends StatelessWidget {
                               const SizedBox(width: 3),
                               Flexible(
                                 child: Text(
-                                  'NISN: $nisn',
+                                  'NISN: ${child.nisn}',
                                   style: const TextStyle(
-                                      fontSize: 11, color: Color(0xFF43474F)),
+                                      fontSize: 11,
+                                      color: Color(0xFF43474F)),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
@@ -187,11 +204,10 @@ class _ProfileCard extends StatelessWidget {
   }
 }
 
-// ── Attendance Card ───────────────────────────────────────────────────────────
+// ── Attendance Card (kosong — data belum tersedia) ────────────────────────────
 
 class _AttendanceCard extends StatelessWidget {
   const _AttendanceCard({required this.onTap});
-
   final VoidCallback onTap;
 
   @override
@@ -206,7 +222,9 @@ class _AttendanceCard extends StatelessWidget {
           border: Border.all(color: const Color(0xFFC4C6D0)),
           boxShadow: const [
             BoxShadow(
-                color: Color(0x05000000), blurRadius: 4, offset: Offset(0, 2)),
+                color: Color(0x05000000),
+                blurRadius: 4,
+                offset: Offset(0, 2)),
           ],
         ),
         child: Row(
@@ -235,7 +253,7 @@ class _AttendanceCard extends StatelessWidget {
                         ),
                         SizedBox(height: 6),
                         Text(
-                          '98%',
+                          '-',
                           style: TextStyle(
                             fontSize: 30,
                             fontWeight: FontWeight.w700,
@@ -250,39 +268,20 @@ class _AttendanceCard extends StatelessWidget {
                       children: [
                         const Divider(height: 1, color: Color(0xFFECEEF0)),
                         const SizedBox(height: 8),
-                        const Text(
-                          'Status Hari Ini',
-                          style: TextStyle(
-                              fontSize: 10, color: Color(0xFF43474F)),
-                        ),
-                        const SizedBox(height: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 3),
-                          decoration: BoxDecoration(
-                            color:
-                                const Color(0xFF006A63).withValues(alpha: 0.08),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                                color: const Color(0xFF006A63)
-                                    .withValues(alpha: 0.3)),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.check_circle_rounded,
-                                  size: 10, color: Color(0xFF006A63)),
-                              SizedBox(width: 3),
-                              Text(
-                                'Hadir',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
-                                  color: Color(0xFF006A63),
-                                ),
+                        Row(
+                          children: const [
+                            Icon(Icons.arrow_forward_ios_rounded,
+                                size: 10, color: Color(0xFF006A63)),
+                            SizedBox(width: 3),
+                            Text(
+                              'Lihat Riwayat',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Color(0xFF006A63),
+                                fontWeight: FontWeight.w600,
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -299,17 +298,15 @@ class _AttendanceCard extends StatelessWidget {
 
 // ── Grades Summary Card ───────────────────────────────────────────────────────
 
-class _GradesSummaryCard extends StatelessWidget {
-  const _GradesSummaryCard();
-
-  static const _subjects = [
-    _SubjectRow('Matematika Wajib', '90', true),
-    _SubjectRow('Bahasa Indonesia', '85', false),
-    _SubjectRow('Fisika', '92', true),
-  ];
+class _GradesSummaryCard extends ConsumerWidget {
+  const _GradesSummaryCard({required this.child});
+  final ChildStudentInfo child;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final gradesAsync = ref.watch(childGradesSummaryProvider);
+    final avgAsync = ref.watch(childOverallAverageProvider);
+
     return Container(
       clipBehavior: Clip.hardEdge,
       decoration: BoxDecoration(
@@ -317,7 +314,8 @@ class _GradesSummaryCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFC4C6D0)),
         boxShadow: const [
-          BoxShadow(color: Color(0x05000000), blurRadius: 4, offset: Offset(0, 2)),
+          BoxShadow(
+              color: Color(0x05000000), blurRadius: 4, offset: Offset(0, 2)),
         ],
       ),
       child: IntrinsicHeight(
@@ -351,7 +349,7 @@ class _GradesSummaryCard extends StatelessWidget {
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: const Text(
-                            'Sem. Ganjil 2023/2024',
+                            'Terbaru',
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w600,
@@ -362,134 +360,38 @@ class _GradesSummaryCard extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    const Row(
-                      children: [
-                        Expanded(child: _StatMiniCard()),
-                        SizedBox(width: 8),
-                        Expanded(child: _TrendMiniCard()),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    // Subject table
-                    Container(
-                      clipBehavior: Clip.hardEdge,
-                      decoration: BoxDecoration(
-                        border: Border.all(color: const Color(0xFFECEEF0)),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Column(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 8),
-                            color: const Color(0xFF002B5B),
-                            child: const Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    'MATA PELAJARAN UTAMA',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w600,
-                                      letterSpacing: 0.5,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ),
-                                Text(
-                                  'NILAI',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w600,
-                                    letterSpacing: 0.5,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          ..._subjects.asMap().entries.map((e) {
-                            final isEven = e.key.isEven;
-                            final row = e.value;
-                            return Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 8),
-                              color: isEven
-                                  ? Colors.white
-                                  : const Color(0xFFF7F9FB),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      row.subject,
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        color: Color(0xFF191C1E),
-                                      ),
-                                    ),
-                                  ),
-                                  Text(
-                                    row.score,
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: row.isHighlight
-                                          ? FontWeight.w700
-                                          : FontWeight.w400,
-                                      color: row.isHighlight
-                                          ? const Color(0xFF006A63)
-                                          : const Color(0xFF191C1E),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 12),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        OutlinedButton.icon(
-                          onPressed: () {},
-                          icon: const Icon(Icons.download_outlined, size: 15),
-                          label: const Text('Unduh Raport'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF006A63),
-                            side: const BorderSide(color: Color(0xFF47FBEB)),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 8),
-                            textStyle: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                        ),
+                        Expanded(child: _AvgMiniCard(avgAsync: avgAsync)),
                         const SizedBox(width: 8),
-                        ElevatedButton.icon(
-                          onPressed: () {},
-                          icon: const Icon(Icons.visibility_outlined, size: 15),
-                          label: const Text('Laporan Lengkap'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF002B5B),
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 8),
-                            textStyle: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                        ),
+                        const Expanded(child: _AttendanceMiniCard()),
                       ],
+                    ),
+                    const SizedBox(height: 12),
+                    gradesAsync.when(
+                      loading: () => const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 20),
+                        child: Center(child: CircularProgressIndicator()),
+                      ),
+                      error: (_, __) => const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                        child: Text('Gagal memuat nilai.',
+                            style: TextStyle(
+                                color: Colors.red, fontSize: 12)),
+                      ),
+                      data: (grades) => grades.isEmpty
+                          ? const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 16),
+                              child: Center(
+                                child: Text(
+                                  'Nilai belum diinput oleh admin.',
+                                  style: TextStyle(
+                                      color: Color(0xFF747780),
+                                      fontSize: 13),
+                                ),
+                              ),
+                            )
+                          : _GradeTable(grades: grades),
                     ),
                   ],
                 ),
@@ -502,15 +404,9 @@ class _GradesSummaryCard extends StatelessWidget {
   }
 }
 
-class _SubjectRow {
-  const _SubjectRow(this.subject, this.score, this.isHighlight);
-  final String subject;
-  final String score;
-  final bool isHighlight;
-}
-
-class _StatMiniCard extends StatelessWidget {
-  const _StatMiniCard();
+class _AvgMiniCard extends StatelessWidget {
+  const _AvgMiniCard({required this.avgAsync});
+  final AsyncValue<double?> avgAsync;
 
   @override
   Widget build(BuildContext context) {
@@ -523,12 +419,12 @@ class _StatMiniCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'RATA-RATA KELAS',
+                const Text(
+                  'RATA-RATA',
                   style: TextStyle(
                     fontSize: 9,
                     fontWeight: FontWeight.w600,
@@ -536,13 +432,27 @@ class _StatMiniCard extends StatelessWidget {
                     color: Color(0xFF43474F),
                   ),
                 ),
-                SizedBox(height: 4),
-                Text(
-                  '87.5',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF002B5B),
+                const SizedBox(height: 4),
+                avgAsync.when(
+                  loading: () => const SizedBox(
+                    height: 22,
+                    child: LinearProgressIndicator(
+                      color: Color(0xFF002B5B),
+                      backgroundColor: Color(0xFFE0E3E5),
+                    ),
+                  ),
+                  error: (_, __) => const Text('-',
+                      style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF002B5B))),
+                  data: (avg) => Text(
+                    avg != null ? avg.toStringAsFixed(1) : '-',
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF002B5B),
+                    ),
                   ),
                 ),
               ],
@@ -564,8 +474,8 @@ class _StatMiniCard extends StatelessWidget {
   }
 }
 
-class _TrendMiniCard extends StatelessWidget {
-  const _TrendMiniCard();
+class _AttendanceMiniCard extends StatelessWidget {
+  const _AttendanceMiniCard();
 
   @override
   Widget build(BuildContext context) {
@@ -583,7 +493,7 @@ class _TrendMiniCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'TREN PENCAPAIAN',
+                  'ABSENSI',
                   style: TextStyle(
                     fontSize: 9,
                     fontWeight: FontWeight.w600,
@@ -592,23 +502,13 @@ class _TrendMiniCard extends StatelessWidget {
                   ),
                 ),
                 SizedBox(height: 4),
-                Row(
-                  children: [
-                    Icon(Icons.trending_up_rounded,
-                        size: 14, color: Color(0xFF006A63)),
-                    SizedBox(width: 3),
-                    Flexible(
-                      child: Text(
-                        'Naik 2.5 poin\ndari UAS lalu',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF006A63),
-                          fontWeight: FontWeight.w500,
-                          height: 1.3,
-                        ),
-                      ),
-                    ),
-                  ],
+                Text(
+                  '-',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF002B5B),
+                  ),
                 ),
               ],
             ),
@@ -620,10 +520,125 @@ class _TrendMiniCard extends StatelessWidget {
               color: const Color(0xFF006A63).withValues(alpha: 0.08),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.insights_outlined,
+            child: const Icon(Icons.fact_check_outlined,
                 size: 18, color: Color(0xFF006A63)),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _GradeTable extends StatelessWidget {
+  const _GradeTable({required this.grades});
+  final List<ChildGradeRow> grades;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      clipBehavior: Clip.hardEdge,
+      decoration: BoxDecoration(
+        border: Border.all(color: const Color(0xFFECEEF0)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            color: const Color(0xFF002B5B),
+            child: const Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'MATA PELAJARAN',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                Text(
+                  'NILAI UTS',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.5,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          ...grades.asMap().entries.map((e) {
+            final isEven = e.key.isEven;
+            final row = e.value;
+            final isHigh = row.utsScore >= 88;
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              color: isEven ? Colors.white : const Color(0xFFF7F9FB),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      row.subject,
+                      style: const TextStyle(
+                          fontSize: 13, color: Color(0xFF191C1E)),
+                    ),
+                  ),
+                  Text(
+                    row.utsScore.toStringAsFixed(0),
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight:
+                          isHigh ? FontWeight.w700 : FontWeight.w400,
+                      color: isHigh
+                          ? const Color(0xFF006A63)
+                          : const Color(0xFF191C1E),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+}
+
+// ── No child linked ───────────────────────────────────────────────────────────
+
+class _NoChildState extends StatelessWidget {
+  const _NoChildState();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.person_search_rounded,
+                size: 64, color: Color(0xFFC4C6D0)),
+            SizedBox(height: 12),
+            Text(
+              'Data anak belum terhubung.',
+              style: TextStyle(
+                  color: Color(0xFF43474F),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600),
+            ),
+            SizedBox(height: 4),
+            Text(
+              'Hubungi admin sekolah untuk menghubungkan akun orang tua.',
+              style: TextStyle(color: Color(0xFF747780), fontSize: 12),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
     );
   }

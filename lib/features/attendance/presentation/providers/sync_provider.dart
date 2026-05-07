@@ -46,12 +46,13 @@ class SyncCoordinator with WidgetsBindingObserver {
   }
 
   Future<SyncResult> triggerNow() async {
-    final result =
-        await _ref.read(syncRepositoryProvider).syncPendingAttendance();
+    final repo = _ref.read(syncRepositoryProvider);
+    final attendance = await repo.syncPendingAttendance();
+    await repo.syncPendingFaceEmbeddings();
     // Refresh the badge after each run.
     // ignore: unused_result
     _ref.invalidate(pendingSyncCountProvider);
-    return result;
+    return attendance;
   }
 }
 

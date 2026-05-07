@@ -50,7 +50,7 @@ class FaceRepository {
     _interpreter = null;
   }
 
-  /// Extract a 128-D L2-normalised embedding from a face image file.
+  /// Extract a 192-D L2-normalised embedding from a face image file.
   ///
   /// Pipeline: decode → optionally crop to [faceBox] → resize to 112×112 →
   /// normalise to [-1, 1] → tflite invoke → L2 normalise.
@@ -175,6 +175,7 @@ class FaceRepository {
             enrollmentDate: drift.Value(now),
             updatedAt: drift.Value(now),
             isActive: const drift.Value(true),
+            syncedToSupabase: const drift.Value(false),
           ),
         );
   }

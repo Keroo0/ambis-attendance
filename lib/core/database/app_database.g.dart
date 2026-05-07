@@ -1163,9 +1163,26 @@ class $FaceEmbeddingsTable extends FaceEmbeddings
       defaultConstraints:
           GeneratedColumn.constraintIsAlways('CHECK ("is_active" IN (0, 1))'),
       defaultValue: const Constant(true));
+  static const VerificationMeta _syncedToSupabaseMeta =
+      const VerificationMeta('syncedToSupabase');
   @override
-  List<GeneratedColumn> get $columns =>
-      [id, studentId, embedding, enrollmentDate, updatedAt, isActive];
+  late final GeneratedColumn<bool> syncedToSupabase = GeneratedColumn<bool>(
+      'synced_to_supabase', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("synced_to_supabase" IN (0, 1))'),
+      defaultValue: const Constant(false));
+  @override
+  List<GeneratedColumn> get $columns => [
+        id,
+        studentId,
+        embedding,
+        enrollmentDate,
+        updatedAt,
+        isActive,
+        syncedToSupabase
+      ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -1212,6 +1229,12 @@ class $FaceEmbeddingsTable extends FaceEmbeddings
       context.handle(_isActiveMeta,
           isActive.isAcceptableOrUnknown(data['is_active']!, _isActiveMeta));
     }
+    if (data.containsKey('synced_to_supabase')) {
+      context.handle(
+          _syncedToSupabaseMeta,
+          syncedToSupabase.isAcceptableOrUnknown(
+              data['synced_to_supabase']!, _syncedToSupabaseMeta));
+    }
     return context;
   }
 
@@ -1233,6 +1256,8 @@ class $FaceEmbeddingsTable extends FaceEmbeddings
           .read(DriftSqlType.int, data['${effectivePrefix}updated_at'])!,
       isActive: attachedDatabase.typeMapping
           .read(DriftSqlType.bool, data['${effectivePrefix}is_active'])!,
+      syncedToSupabase: attachedDatabase.typeMapping.read(
+          DriftSqlType.bool, data['${effectivePrefix}synced_to_supabase'])!,
     );
   }
 
@@ -1250,13 +1275,15 @@ class FaceEmbeddingEntity extends DataClass
   final int enrollmentDate;
   final int updatedAt;
   final bool isActive;
+  final bool syncedToSupabase;
   const FaceEmbeddingEntity(
       {required this.id,
       required this.studentId,
       required this.embedding,
       required this.enrollmentDate,
       required this.updatedAt,
-      required this.isActive});
+      required this.isActive,
+      required this.syncedToSupabase});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -1266,6 +1293,7 @@ class FaceEmbeddingEntity extends DataClass
     map['enrollment_date'] = Variable<int>(enrollmentDate);
     map['updated_at'] = Variable<int>(updatedAt);
     map['is_active'] = Variable<bool>(isActive);
+    map['synced_to_supabase'] = Variable<bool>(syncedToSupabase);
     return map;
   }
 
@@ -1277,6 +1305,7 @@ class FaceEmbeddingEntity extends DataClass
       enrollmentDate: Value(enrollmentDate),
       updatedAt: Value(updatedAt),
       isActive: Value(isActive),
+      syncedToSupabase: Value(syncedToSupabase),
     );
   }
 
@@ -1290,6 +1319,7 @@ class FaceEmbeddingEntity extends DataClass
       enrollmentDate: serializer.fromJson<int>(json['enrollmentDate']),
       updatedAt: serializer.fromJson<int>(json['updatedAt']),
       isActive: serializer.fromJson<bool>(json['isActive']),
+      syncedToSupabase: serializer.fromJson<bool>(json['syncedToSupabase']),
     );
   }
   @override
@@ -1302,6 +1332,7 @@ class FaceEmbeddingEntity extends DataClass
       'enrollmentDate': serializer.toJson<int>(enrollmentDate),
       'updatedAt': serializer.toJson<int>(updatedAt),
       'isActive': serializer.toJson<bool>(isActive),
+      'syncedToSupabase': serializer.toJson<bool>(syncedToSupabase),
     };
   }
 
@@ -1311,7 +1342,8 @@ class FaceEmbeddingEntity extends DataClass
           Uint8List? embedding,
           int? enrollmentDate,
           int? updatedAt,
-          bool? isActive}) =>
+          bool? isActive,
+          bool? syncedToSupabase}) =>
       FaceEmbeddingEntity(
         id: id ?? this.id,
         studentId: studentId ?? this.studentId,
@@ -1319,6 +1351,7 @@ class FaceEmbeddingEntity extends DataClass
         enrollmentDate: enrollmentDate ?? this.enrollmentDate,
         updatedAt: updatedAt ?? this.updatedAt,
         isActive: isActive ?? this.isActive,
+        syncedToSupabase: syncedToSupabase ?? this.syncedToSupabase,
       );
   FaceEmbeddingEntity copyWithCompanion(FaceEmbeddingsCompanion data) {
     return FaceEmbeddingEntity(
@@ -1330,6 +1363,9 @@ class FaceEmbeddingEntity extends DataClass
           : this.enrollmentDate,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       isActive: data.isActive.present ? data.isActive.value : this.isActive,
+      syncedToSupabase: data.syncedToSupabase.present
+          ? data.syncedToSupabase.value
+          : this.syncedToSupabase,
     );
   }
 
@@ -1341,14 +1377,21 @@ class FaceEmbeddingEntity extends DataClass
           ..write('embedding: $embedding, ')
           ..write('enrollmentDate: $enrollmentDate, ')
           ..write('updatedAt: $updatedAt, ')
-          ..write('isActive: $isActive')
+          ..write('isActive: $isActive, ')
+          ..write('syncedToSupabase: $syncedToSupabase')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, studentId,
-      $driftBlobEquality.hash(embedding), enrollmentDate, updatedAt, isActive);
+  int get hashCode => Object.hash(
+      id,
+      studentId,
+      $driftBlobEquality.hash(embedding),
+      enrollmentDate,
+      updatedAt,
+      isActive,
+      syncedToSupabase);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1358,7 +1401,8 @@ class FaceEmbeddingEntity extends DataClass
           $driftBlobEquality.equals(other.embedding, this.embedding) &&
           other.enrollmentDate == this.enrollmentDate &&
           other.updatedAt == this.updatedAt &&
-          other.isActive == this.isActive);
+          other.isActive == this.isActive &&
+          other.syncedToSupabase == this.syncedToSupabase);
 }
 
 class FaceEmbeddingsCompanion extends UpdateCompanion<FaceEmbeddingEntity> {
@@ -1368,6 +1412,7 @@ class FaceEmbeddingsCompanion extends UpdateCompanion<FaceEmbeddingEntity> {
   final Value<int> enrollmentDate;
   final Value<int> updatedAt;
   final Value<bool> isActive;
+  final Value<bool> syncedToSupabase;
   final Value<int> rowid;
   const FaceEmbeddingsCompanion({
     this.id = const Value.absent(),
@@ -1376,6 +1421,7 @@ class FaceEmbeddingsCompanion extends UpdateCompanion<FaceEmbeddingEntity> {
     this.enrollmentDate = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.isActive = const Value.absent(),
+    this.syncedToSupabase = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   FaceEmbeddingsCompanion.insert({
@@ -1385,6 +1431,7 @@ class FaceEmbeddingsCompanion extends UpdateCompanion<FaceEmbeddingEntity> {
     required int enrollmentDate,
     required int updatedAt,
     this.isActive = const Value.absent(),
+    this.syncedToSupabase = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : id = Value(id),
         studentId = Value(studentId),
@@ -1398,6 +1445,7 @@ class FaceEmbeddingsCompanion extends UpdateCompanion<FaceEmbeddingEntity> {
     Expression<int>? enrollmentDate,
     Expression<int>? updatedAt,
     Expression<bool>? isActive,
+    Expression<bool>? syncedToSupabase,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1407,6 +1455,7 @@ class FaceEmbeddingsCompanion extends UpdateCompanion<FaceEmbeddingEntity> {
       if (enrollmentDate != null) 'enrollment_date': enrollmentDate,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (isActive != null) 'is_active': isActive,
+      if (syncedToSupabase != null) 'synced_to_supabase': syncedToSupabase,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1418,6 +1467,7 @@ class FaceEmbeddingsCompanion extends UpdateCompanion<FaceEmbeddingEntity> {
       Value<int>? enrollmentDate,
       Value<int>? updatedAt,
       Value<bool>? isActive,
+      Value<bool>? syncedToSupabase,
       Value<int>? rowid}) {
     return FaceEmbeddingsCompanion(
       id: id ?? this.id,
@@ -1426,6 +1476,7 @@ class FaceEmbeddingsCompanion extends UpdateCompanion<FaceEmbeddingEntity> {
       enrollmentDate: enrollmentDate ?? this.enrollmentDate,
       updatedAt: updatedAt ?? this.updatedAt,
       isActive: isActive ?? this.isActive,
+      syncedToSupabase: syncedToSupabase ?? this.syncedToSupabase,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1451,6 +1502,9 @@ class FaceEmbeddingsCompanion extends UpdateCompanion<FaceEmbeddingEntity> {
     if (isActive.present) {
       map['is_active'] = Variable<bool>(isActive.value);
     }
+    if (syncedToSupabase.present) {
+      map['synced_to_supabase'] = Variable<bool>(syncedToSupabase.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1466,6 +1520,7 @@ class FaceEmbeddingsCompanion extends UpdateCompanion<FaceEmbeddingEntity> {
           ..write('enrollmentDate: $enrollmentDate, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('isActive: $isActive, ')
+          ..write('syncedToSupabase: $syncedToSupabase, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -5833,6 +5888,7 @@ typedef $$FaceEmbeddingsTableCreateCompanionBuilder = FaceEmbeddingsCompanion
   required int enrollmentDate,
   required int updatedAt,
   Value<bool> isActive,
+  Value<bool> syncedToSupabase,
   Value<int> rowid,
 });
 typedef $$FaceEmbeddingsTableUpdateCompanionBuilder = FaceEmbeddingsCompanion
@@ -5843,6 +5899,7 @@ typedef $$FaceEmbeddingsTableUpdateCompanionBuilder = FaceEmbeddingsCompanion
   Value<int> enrollmentDate,
   Value<int> updatedAt,
   Value<bool> isActive,
+  Value<bool> syncedToSupabase,
   Value<int> rowid,
 });
 
@@ -5870,6 +5927,10 @@ class $$FaceEmbeddingsTableFilterComposer
 
   ColumnFilters<bool> get isActive => $composableBuilder(
       column: $table.isActive, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get syncedToSupabase => $composableBuilder(
+      column: $table.syncedToSupabase,
+      builder: (column) => ColumnFilters(column));
 }
 
 class $$FaceEmbeddingsTableOrderingComposer
@@ -5896,6 +5957,10 @@ class $$FaceEmbeddingsTableOrderingComposer
 
   ColumnOrderings<bool> get isActive => $composableBuilder(
       column: $table.isActive, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get syncedToSupabase => $composableBuilder(
+      column: $table.syncedToSupabase,
+      builder: (column) => ColumnOrderings(column));
 }
 
 class $$FaceEmbeddingsTableAnnotationComposer
@@ -5921,6 +5986,9 @@ class $$FaceEmbeddingsTableAnnotationComposer
 
   GeneratedColumn<bool> get isActive =>
       $composableBuilder(column: $table.isActive, builder: (column) => column);
+
+  GeneratedColumn<bool> get syncedToSupabase => $composableBuilder(
+      column: $table.syncedToSupabase, builder: (column) => column);
 }
 
 class $$FaceEmbeddingsTableTableManager extends RootTableManager<
@@ -5956,6 +6024,7 @@ class $$FaceEmbeddingsTableTableManager extends RootTableManager<
             Value<int> enrollmentDate = const Value.absent(),
             Value<int> updatedAt = const Value.absent(),
             Value<bool> isActive = const Value.absent(),
+            Value<bool> syncedToSupabase = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               FaceEmbeddingsCompanion(
@@ -5965,6 +6034,7 @@ class $$FaceEmbeddingsTableTableManager extends RootTableManager<
             enrollmentDate: enrollmentDate,
             updatedAt: updatedAt,
             isActive: isActive,
+            syncedToSupabase: syncedToSupabase,
             rowid: rowid,
           ),
           createCompanionCallback: ({
@@ -5974,6 +6044,7 @@ class $$FaceEmbeddingsTableTableManager extends RootTableManager<
             required int enrollmentDate,
             required int updatedAt,
             Value<bool> isActive = const Value.absent(),
+            Value<bool> syncedToSupabase = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               FaceEmbeddingsCompanion.insert(
@@ -5983,6 +6054,7 @@ class $$FaceEmbeddingsTableTableManager extends RootTableManager<
             enrollmentDate: enrollmentDate,
             updatedAt: updatedAt,
             isActive: isActive,
+            syncedToSupabase: syncedToSupabase,
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0

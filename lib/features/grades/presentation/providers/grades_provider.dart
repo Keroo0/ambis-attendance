@@ -7,8 +7,7 @@ final gradesProvider = FutureProvider.family<(List<SubjectGrade>, GradeSummary),
   (ref, semester) async {
     final user = ref.watch(authProvider).valueOrNull;
     if (user == null) return (<SubjectGrade>[], GradeSummary.empty);
-    final repo = ref.watch(gradeRepositoryProvider);
-    await repo.seedIfEmpty(user.id);
-    return repo.getGradesByStudent(user.id, semester);
+    final repo = ref.read(gradeRepositoryProvider);
+    return repo.getGradesFromSupabase(user.id, semester);
   },
 );
