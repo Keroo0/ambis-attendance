@@ -239,7 +239,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                     foregroundColor: DesignTokens.onPrimary,
                                     disabledBackgroundColor:
                                         DesignTokens.primary.withAlpha(120),
-                                    shape: RoundedRectangleBorder(
+                                    shape: const RoundedRectangleBorder(
                                       borderRadius: DesignTokens.radius8,
                                     ),
                                     elevation: 0,
@@ -257,12 +257,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           horizontal: DesignTokens.spacing24,
                           vertical: DesignTokens.spacing20,
                         ),
-                        decoration: BoxDecoration(
+                        decoration: const BoxDecoration(
                           color: DesignTokens.surfaceContainer,
                           border: Border(
                             top: BorderSide(color: DesignTokens.outlineVariant, width: 1),
                           ),
-                          borderRadius: const BorderRadius.vertical(
+                          borderRadius: BorderRadius.vertical(
                             bottom: Radius.circular(16),
                           ),
                         ),
@@ -300,13 +300,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 onPressed: () => context.go('/nisn-verify'),
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: DesignTokens.primary,
-                                  side: BorderSide(
+                                  side: const BorderSide(
                                       color: DesignTokens.outlineVariant, width: 1),
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: DesignTokens.spacing16,
                                     vertical: 10,
                                   ),
-                                  shape: RoundedRectangleBorder(
+                                  shape: const RoundedRectangleBorder(
                                     borderRadius: DesignTokens.radius8,
                                   ),
                                   textStyle: DesignTokens.smallText.copyWith(

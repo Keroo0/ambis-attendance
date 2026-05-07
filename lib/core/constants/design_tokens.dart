@@ -106,7 +106,7 @@ abstract class DesignTokens {
   );
 
   // ── Input Decoration ───────────────────────────────────
-  static final inputBorder = OutlineInputBorder(
+  static const inputBorder = OutlineInputBorder(
     borderRadius: radius8,
     borderSide: const BorderSide(color: outline),
   );
@@ -116,17 +116,17 @@ abstract class DesignTokens {
     borderSide: BorderSide(color: outline.withAlpha(130)),
   );
 
-  static final inputFocusedBorder = OutlineInputBorder(
+  static const inputFocusedBorder = OutlineInputBorder(
     borderRadius: radius8,
     borderSide: const BorderSide(color: secondary, width: 1.5),
   );
 
-  static final inputErrorBorder = OutlineInputBorder(
+  static const inputErrorBorder = OutlineInputBorder(
     borderRadius: radius8,
     borderSide: const BorderSide(color: error, width: 1.0),
   );
 
-  static final inputErrorFocusedBorder = OutlineInputBorder(
+  static const inputErrorFocusedBorder = OutlineInputBorder(
     borderRadius: radius8,
     borderSide: const BorderSide(color: error, width: 1.5),
   );
