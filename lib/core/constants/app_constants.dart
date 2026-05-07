@@ -18,8 +18,8 @@ class AppConstants {
   /// `face_recognition_threshold`.
   static const double defaultFaceThreshold = 0.75;
 
-  /// Embedding dimensionality for MobileFaceNet.
-  static const int embeddingSize = 128;
+  /// Embedding dimensionality — model outputs 192-D vectors.
+  static const int embeddingSize = 192;
 
   /// MobileFaceNet expects 112x112 RGB input, normalised to [-1, 1].
   static const int faceInputSize = 112;
