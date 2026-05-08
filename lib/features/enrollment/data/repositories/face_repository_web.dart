@@ -79,9 +79,15 @@ class FaceRepository {
   Future<void> saveEmbedding(String studentId, Float32List embedding) async {
     final now = DateTime.now().millisecondsSinceEpoch;
     final blob = embedding.buffer.asUint8List();
+
+    final existing = await (_db.select(_db.faceEmbeddings)
+      ..where((t) => t.studentId.equals(studentId)))
+      .getSingleOrNull();
+    final id = existing?.id ?? _uuid.v4();
+
     await _db.into(_db.faceEmbeddings).insertOnConflictUpdate(
           FaceEmbeddingsCompanion(
-            id: drift.Value(_uuid.v4()),
+            id: drift.Value(id),
             studentId: drift.Value(studentId),
             embedding: drift.Value(blob),
             enrollmentDate: drift.Value(now),

@@ -8,7 +8,7 @@ import 'package:google_ml_kit/google_ml_kit.dart' as mlk;
 
 import '../../data/repositories/face_repository.dart';
 
-const int _kSamplesNeeded = 3;
+const int _kSamplesNeeded = 5;
 const double _kEulerThresholdDeg = 12.0;
 
 enum EnrollmentPhase { idle, capturing, saving, done, error }

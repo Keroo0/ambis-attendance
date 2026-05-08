@@ -510,6 +510,14 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen>
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Row(
                     children: [
+                      if (context.canPop())
+                        IconButton(
+                          onPressed: () => context.pop(),
+                          icon: const Icon(Icons.arrow_back,
+                              color: Color(0xFF002B5B)),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
                       const Icon(Icons.school_rounded,
                           color: Color(0xFF002B5B), size: 24),
                       const SizedBox(width: 8),
