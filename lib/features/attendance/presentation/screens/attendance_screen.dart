@@ -11,6 +11,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_ml_kit/google_ml_kit.dart' as mlk;
 import 'package:permission_handler/permission_handler.dart';
 
+import '../../../../core/database/app_database.dart';
 import '../../../../core/exceptions/app_exception.dart';
 import '../../../../core/services/camera_service.dart';
 import '../../../../core/services/location_service.dart';
@@ -44,8 +45,13 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen>
   Position? _position;
   String _locMsg = 'Mendeteksi lokasi...';
 
-  // ── Kind ─────────────────────────────────────────────────────────
+  // ── Kind (auto-detected from today's record) ──────────────────────
   AttendanceKind _kind = AttendanceKind.checkIn;
+  AttendanceEntity? _todayRecord;
+  bool _recordLoading = true;
+
+  bool get _allDone =>
+      _todayRecord?.timeIn != null && _todayRecord?.timeOut != null;
 
   // ── Face scanning ────────────────────────────────────────────────
   bool _scanning = false;
@@ -81,6 +87,29 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen>
     _lineAnim = Tween<double>(begin: 0, end: 1).animate(_lineCtrl);
     _initCamera();
     _initLocation();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadTodayRecord());
+  }
+
+  Future<void> _loadTodayRecord() async {
+    final user = ref.read(authProvider).valueOrNull;
+    if (user == null || !mounted) {
+      setState(() => _recordLoading = false);
+      return;
+    }
+    final record = await ref
+        .read(attendanceRepositoryProvider)
+        .getTodayAttendance(user.id);
+    if (!mounted) return;
+    setState(() {
+      _todayRecord = record;
+      _recordLoading = false;
+      if (record == null) {
+        _kind = AttendanceKind.checkIn;
+      } else if (record.timeOut == null) {
+        _kind = AttendanceKind.checkOut;
+      }
+      // timeIn + timeOut both set → _allDone = true, kind unused
+    });
   }
 
   // ── Camera init ───────────────────────────────────────────────────
@@ -338,12 +367,10 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen>
           );
       ref.read(rateLimitProvider.notifier).recordSuccess();
       if (!mounted) return;
-      _setStatus(
-        _kind == AttendanceKind.checkIn
-            ? 'Berhasil absen masuk!'
-            : 'Berhasil absen pulang!',
-        const Color(0xFF006A63),
-      );
+      final successMsg = _kind == AttendanceKind.checkIn
+          ? 'Berhasil absen masuk!'
+          : 'Berhasil absen pulang!';
+      _setStatus(successMsg, const Color(0xFF006A63));
       await Future<void>.delayed(const Duration(milliseconds: 900));
       if (!mounted) return;
       context.go('/dashboard');
@@ -464,6 +491,16 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen>
                 onRegister: () => context.push('/enrollment'),
               );
             }
+            if (_recordLoading) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (_allDone) {
+              return _AllDoneView(
+                timeIn: _todayRecord!.timeIn!,
+                timeOut: _todayRecord!.timeOut!,
+                onHome: () => context.go('/dashboard'),
+              );
+            }
             return Column(
               children: [
                 // ── TopBar ───────────────────────────────────────────────
@@ -502,30 +539,36 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen>
                       children: [
                         const SizedBox(height: 20),
 
-                    // Title
-                    const Text(
-                      'Presensi Harian',
-                      style: TextStyle(
+                    // Title — dynamic based on auto-detected kind
+                    Text(
+                      _kind == AttendanceKind.checkIn
+                          ? 'Absen Masuk'
+                          : 'Absen Pulang',
+                      style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w600,
                         color: Color(0xFF001736),
                       ),
                     ),
                     const SizedBox(height: 4),
-                    const Text(
-                      'Arahkan wajah Anda ke kamera untuk verifikasi.',
+                    Text(
+                      _kind == AttendanceKind.checkIn
+                          ? 'Arahkan wajah ke kamera untuk absen masuk.'
+                          : 'Arahkan wajah ke kamera untuk absen pulang.',
                       textAlign: TextAlign.center,
                       style:
-                          TextStyle(fontSize: 13, color: Color(0xFF43474F)),
+                          const TextStyle(fontSize: 13, color: Color(0xFF43474F)),
                     ),
-                    const SizedBox(height: 16),
-
-                    // Kind selector
-                    _KindSelector(
-                      kind: _kind,
-                      enabled: !_scanning,
-                      onChanged: (k) => setState(() => _kind = k),
-                    ),
+                    if (_kind == AttendanceKind.checkOut &&
+                        _todayRecord?.timeIn != null) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        'Masuk tercatat: ${_todayRecord!.timeIn}',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                            fontSize: 12, color: Color(0xFF006A63)),
+                      ),
+                    ],
                     const SizedBox(height: 16),
 
                     // Camera viewfinder
@@ -576,7 +619,9 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen>
                         label: Text(
                           _scanning
                               ? 'Sedang Memverifikasi...'
-                              : 'Submit Attendance',
+                              : _kind == AttendanceKind.checkIn
+                                  ? 'Absen Masuk'
+                                  : 'Absen Pulang',
                           style: const TextStyle(
                               fontSize: 15, fontWeight: FontWeight.w600),
                         ),
@@ -605,114 +650,115 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen>
   }
 }
 
-// ── Kind selector ──────────────────────────────────────────────────────────
+// ── All-done view ──────────────────────────────────────────────────────────
 
-class _KindSelector extends StatelessWidget {
-  const _KindSelector({
-    required this.kind,
-    required this.enabled,
-    required this.onChanged,
+class _AllDoneView extends StatelessWidget {
+  const _AllDoneView({
+    required this.timeIn,
+    required this.timeOut,
+    required this.onHome,
   });
 
-  final AttendanceKind kind;
-  final bool enabled;
-  final ValueChanged<AttendanceKind> onChanged;
+  final String timeIn;
+  final String timeOut;
+  final VoidCallback onHome;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF2F4F6),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFE0E3E5)),
-      ),
-      child: Row(
-        children: [
-          _KindTab(
-            label: 'Absen Masuk',
-            icon: Icons.login_rounded,
-            selected: kind == AttendanceKind.checkIn,
-            onTap: enabled
-                ? () => onChanged(AttendanceKind.checkIn)
-                : null,
-          ),
-          _KindTab(
-            label: 'Absen Pulang',
-            icon: Icons.logout_rounded,
-            selected: kind == AttendanceKind.checkOut,
-            onTap: enabled
-                ? () => onChanged(AttendanceKind.checkOut)
-                : null,
-          ),
-        ],
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: const Color(0xFF006A63).withAlpha(25),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.check_circle_rounded,
+                  size: 48, color: Color(0xFF006A63)),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Presensi Hari Ini Selesai',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF001736),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFE0E3E5)),
+              ),
+              child: Column(
+                children: [
+                  _TimeRow(icon: Icons.login_rounded, label: 'Masuk', time: timeIn),
+                  const SizedBox(height: 8),
+                  _TimeRow(icon: Icons.logout_rounded, label: 'Pulang', time: timeOut),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton(
+                onPressed: onHome,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF001736),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                ),
+                child: const Text('Kembali ke Beranda',
+                    style: TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.w600)),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _KindTab extends StatelessWidget {
-  const _KindTab({
-    required this.label,
+class _TimeRow extends StatelessWidget {
+  const _TimeRow({
     required this.icon,
-    required this.selected,
-    required this.onTap,
+    required this.label,
+    required this.time,
   });
 
-  final String label;
   final IconData icon;
-  final bool selected;
-  final VoidCallback? onTap;
+  final String label;
+  final String time;
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(vertical: 9),
-          decoration: BoxDecoration(
-            color: selected ? Colors.white : Colors.transparent,
-            borderRadius: BorderRadius.circular(6),
-            border: selected
-                ? Border.all(color: const Color(0xFFE0E3E5))
-                : null,
-            boxShadow: selected
-                ? [
-                    BoxShadow(
-                      color: Colors.black.withAlpha(15),
-                      blurRadius: 4,
-                      offset: const Offset(0, 1),
-                    )
-                  ]
-                : null,
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                size: 14,
-                color: selected
-                    ? const Color(0xFF001736)
-                    : const Color(0xFF747780),
-              ),
-              const SizedBox(width: 5),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: selected
-                      ? const Color(0xFF001736)
-                      : const Color(0xFF747780),
-                ),
-              ),
-            ],
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: const Color(0xFF43474F)),
+        const SizedBox(width: 8),
+        Text(label,
+            style: const TextStyle(fontSize: 13, color: Color(0xFF43474F))),
+        const Spacer(),
+        Text(
+          time.length >= 5 ? time.substring(0, 5) : time,
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF001736),
           ),
         ),
-      ),
+      ],
     );
   }
 }

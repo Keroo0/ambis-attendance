@@ -20,7 +20,7 @@ import '../../../enrollment/data/repositories/face_repository.dart';
 import '../../data/repositories/attendance_repository.dart';
 import '../providers/rate_limit_provider.dart';
 
-enum _LivenessState { waitingBlink, passed }
+enum _LivenessState { waitingBlink, waitingHeadTurn, passed }
 
 class ScannerScreen extends ConsumerStatefulWidget {
   const ScannerScreen({
@@ -114,10 +114,15 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
 
     if (_livenessState == _LivenessState.waitingBlink) {
       _setStatus('Kedipkan mata Anda', AppColors.darkWarning);
-      // Jika tidak ada kedipan dalam 8 detik, hitung sebagai kegagalan.
       _livenessTimeoutTimer = Timer(
         const Duration(seconds: 8),
         () => _handleFailure('Kedipan tidak terdeteksi. Coba lagi.'),
+      );
+    } else if (_livenessState == _LivenessState.waitingHeadTurn) {
+      _setStatus('Tolehkan kepala ke kiri sebentar', AppColors.darkWarning);
+      _livenessTimeoutTimer = Timer(
+        const Duration(seconds: 6),
+        () => _handleFailure('Gerakan kepala tidak terdeteksi. Coba lagi.'),
       );
     }
 
@@ -143,6 +148,8 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
 
       if (_livenessState == _LivenessState.waitingBlink) {
         _checkBlink(faces);
+      } else if (_livenessState == _LivenessState.waitingHeadTurn) {
+        _checkHeadTurn(faces);
       } else {
         await _checkFace(faces, shot.path);
       }
@@ -165,6 +172,18 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
     final left = face.leftEyeOpenProbability;
     final right = face.rightEyeOpenProbability;
     if (left != null && right != null && left < 0.3 && right < 0.3) {
+      _livenessTimeoutTimer?.cancel();
+      setState(() => _livenessState = _LivenessState.waitingHeadTurn);
+      _startCaptureLoop();
+    }
+  }
+
+  /// Deteksi toleh kepala: Euler Y > 25 derajat (kepala menghadap kiri).
+  void _checkHeadTurn(List<mlk.Face> faces) {
+    if (faces.length != 1) return;
+    final face = faces.first;
+    final yaw = face.headEulerAngleY;
+    if (yaw != null && yaw.abs() > 25) {
       _livenessTimeoutTimer?.cancel();
       setState(() => _livenessState = _LivenessState.passed);
       _setStatus('Liveness OK, mencocokkan wajah...', AppColors.darkPrimary);
@@ -268,10 +287,10 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
         if (mounted) _showFallbackDialog();
       });
     } else {
-      // Reset ke fase liveness dan coba lagi setelah 2 detik.
+      // Reset ke blink pertama dan coba lagi setelah 2 detik.
       Future.delayed(const Duration(seconds: 2), () {
         if (!mounted) return;
-        _handlingFailure = false; // reset guard before restarting
+        _handlingFailure = false;
         setState(() => _livenessState = _LivenessState.waitingBlink);
         _startCaptureLoop();
       });
@@ -298,8 +317,8 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
               Navigator.pop(context);
               setState(() {
                 _failCount = 0;
-                _livenessState = _LivenessState.waitingBlink;
                 _handlingFailure = false;
+                _livenessState = _LivenessState.waitingBlink;
               });
               _startCaptureLoop();
             },

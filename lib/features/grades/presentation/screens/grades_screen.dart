@@ -1,3 +1,4 @@
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -132,6 +133,18 @@ class _GradesScreenState extends ConsumerState<GradesScreen> {
                           ),
                         ],
                       ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Chart
+                    async.when(
+                      loading: () => const SizedBox.shrink(),
+                      error: (_, __) => const SizedBox.shrink(),
+                      data: (result) {
+                        final (grades, _) = result;
+                        if (grades.isEmpty) return const SizedBox.shrink();
+                        return _GradesChart(grades: grades);
+                      },
                     ),
                     const SizedBox(height: 16),
 
@@ -575,6 +588,209 @@ class _StatusPill extends StatelessWidget {
           color: passed ? const Color(0xFF006A63) : Colors.red,
         ),
       ),
+    );
+  }
+}
+
+// ── Grades bar chart ───────────────────────────────────────────────────────
+
+class _GradesChart extends StatefulWidget {
+  const _GradesChart({required this.grades});
+  final List<SubjectGrade> grades;
+
+  @override
+  State<_GradesChart> createState() => _GradesChartState();
+}
+
+class _GradesChartState extends State<_GradesChart> {
+  int? _touchedIndex;
+
+  static const _colorUTS = Color(0xFF006A63);
+  static const _colorUAS = Color(0xFF405F91);
+
+  @override
+  Widget build(BuildContext context) {
+    final grades = widget.grades;
+    final maxY = grades.fold<double>(
+      80,
+      (m, g) => [m, g.utsScore, g.uasScore].reduce(
+        (a, b) => a > b ? a : b,
+      ),
+    );
+    final barGroups = List.generate(grades.length, (i) {
+      final g = grades[i];
+      final touched = _touchedIndex == i;
+      return BarChartGroupData(
+        x: i,
+        barRods: [
+          BarChartRodData(
+            toY: g.utsScore,
+            color: _colorUTS.withAlpha(touched ? 255 : 200),
+            width: 8,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
+          ),
+          BarChartRodData(
+            toY: g.uasScore,
+            color: _colorUAS.withAlpha(touched ? 255 : 200),
+            width: 8,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
+          ),
+        ],
+        showingTooltipIndicators: touched ? [0, 1] : [],
+      );
+    });
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE0E3E5)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(10),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.fromLTRB(8, 16, 16, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(left: 8, bottom: 8),
+            child: Row(
+              children: [
+                _Legend(color: _colorUTS, label: 'UTS'),
+                SizedBox(width: 16),
+                _Legend(color: _colorUAS, label: 'UAS'),
+              ],
+            ),
+          ),
+          SizedBox(
+            height: 160,
+            child: BarChart(
+              BarChartData(
+                maxY: (maxY + 10).clamp(0, 105),
+                minY: 0,
+                barGroups: barGroups,
+                barTouchData: BarTouchData(
+                  touchTooltipData: BarTouchTooltipData(
+                    tooltipBgColor: const Color(0xFF191C1E),
+                    tooltipPadding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 4),
+                    getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                      final label = rodIndex == 0 ? 'UTS' : 'UAS';
+                      return BarTooltipItem(
+                        '$label\n${rod.toY.toStringAsFixed(0)}',
+                        const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600),
+                      );
+                    },
+                  ),
+                  touchCallback: (event, response) {
+                    if (!event.isInterestedForInteractions ||
+                        response == null ||
+                        response.spot == null) {
+                      if (_touchedIndex != null) {
+                        setState(() => _touchedIndex = null);
+                      }
+                      return;
+                    }
+                    final idx = response.spot!.touchedBarGroupIndex;
+                    if (_touchedIndex != idx) {
+                      setState(() => _touchedIndex = idx);
+                    }
+                  },
+                ),
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: false,
+                  horizontalInterval: 25,
+                  getDrawingHorizontalLine: (v) => const FlLine(
+                    color: Color(0xFFE0E3E5),
+                    strokeWidth: 1,
+                  ),
+                ),
+                borderData: FlBorderData(show: false),
+                titlesData: FlTitlesData(
+                  topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false)),
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 32,
+                      interval: 25,
+                      getTitlesWidget: (v, _) => Text(
+                        v.toInt().toString(),
+                        style: const TextStyle(
+                            fontSize: 10, color: Color(0xFF747780)),
+                      ),
+                    ),
+                  ),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 28,
+                      getTitlesWidget: (v, _) {
+                        final i = v.toInt();
+                        if (i < 0 || i >= grades.length) {
+                          return const SizedBox.shrink();
+                        }
+                        final words = grades[i].subject.split(' ');
+                        final abbr = words.length > 1
+                            ? words.map((w) => w[0]).join()
+                            : grades[i].subject.substring(
+                                0,
+                                grades[i].subject.length.clamp(0, 5),
+                              );
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            abbr,
+                            style: const TextStyle(
+                                fontSize: 10, color: Color(0xFF43474F)),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Legend extends StatelessWidget {
+  const _Legend({required this.color, required this.label});
+  final Color color;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(label,
+            style: const TextStyle(fontSize: 11, color: Color(0xFF43474F))),
+      ],
     );
   }
 }

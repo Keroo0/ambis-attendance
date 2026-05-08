@@ -30,10 +30,28 @@ class _LeaveRequestScreenState extends ConsumerState<LeaveRequestScreen> {
     'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des',
   ];
 
+  final _scrollCtrl = ScrollController();
+
   @override
   void dispose() {
     _reasonCtrl.dispose();
+    _scrollCtrl.dispose();
     super.dispose();
+  }
+
+  void _prefillFrom(LeaveRequestEntity leave) {
+    setState(() {
+      _permitType = leave.type == 'sakit' ? 'Sakit' : 'Izin';
+      _startDate = leave.dateFrom != null ? DateTime.tryParse(leave.dateFrom!) : null;
+      _endDate = leave.dateTo != null ? DateTime.tryParse(leave.dateTo!) : null;
+      _reasonCtrl.text = leave.reason ?? '';
+      _imageFile = null;
+    });
+    _scrollCtrl.animateTo(
+      0,
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeOut,
+    );
   }
 
   String _formatDate(DateTime? d) {
@@ -199,6 +217,7 @@ class _LeaveRequestScreenState extends ConsumerState<LeaveRequestScreen> {
               child: Stack(
                 children: [
                   SingleChildScrollView(
+                    controller: _scrollCtrl,
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -537,7 +556,12 @@ class _LeaveRequestScreenState extends ConsumerState<LeaveRequestScreen> {
                                 )
                               : Column(
                                   children: leaves
-                                      .map((l) => _LeaveCard(leave: l))
+                                      .map((l) => _LeaveCard(
+                                            leave: l,
+                                            onResubmit: l.status == 'rejected'
+                                                ? () => _prefillFrom(l)
+                                                : null,
+                                          ))
                                       .toList(),
                                 ),
                         ),
@@ -712,9 +736,10 @@ class _DashedBorderPainter extends CustomPainter {
 // ── Leave history card ─────────────────────────────────────────────────────
 
 class _LeaveCard extends StatelessWidget {
-  const _LeaveCard({required this.leave});
+  const _LeaveCard({required this.leave, this.onResubmit});
 
   final LeaveRequestEntity leave;
+  final VoidCallback? onResubmit;
 
   static const _monthNames = [
     'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
@@ -827,6 +852,30 @@ class _LeaveCard extends StatelessWidget {
                     'Alasan penolakan: ${leave.rejectedReason}',
                     style: const TextStyle(
                         color: Colors.red, fontSize: 11),
+                  ),
+                ],
+                if (onResubmit != null) ...[
+                  const SizedBox(height: 8),
+                  GestureDetector(
+                    onTap: onResubmit,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF002B5B).withAlpha(15),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                            color: const Color(0xFF002B5B).withAlpha(60)),
+                      ),
+                      child: const Text(
+                        'Ajukan Ulang',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF002B5B),
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ],
