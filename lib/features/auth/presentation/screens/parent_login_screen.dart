@@ -192,7 +192,21 @@ class _ParentLoginScreenState extends ConsumerState<ParentLoginScreen> {
                         children: [
                           const _FieldLabel('PIN / PASSWORD'),
                           TextButton(
-                            onPressed: () {},
+                            onPressed: () => showDialog(
+                              context: context,
+                              builder: (_) => AlertDialog(
+                                title: const Text('Lupa PIN?'),
+                                content: const Text(
+                                  'Hubungi Wali Kelas untuk mendapatkan PIN baru.',
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context),
+                                    child: const Text('OK'),
+                                  ),
+                                ],
+                              ),
+                            ),
                             style: TextButton.styleFrom(
                               padding: EdgeInsets.zero,
                               minimumSize: Size.zero,

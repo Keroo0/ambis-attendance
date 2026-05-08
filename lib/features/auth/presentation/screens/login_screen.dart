@@ -159,7 +159,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 children: [
                                   const _FieldLabel('PASSWORD'),
                                   TextButton(
-                                    onPressed: () {},
+                                    onPressed: () => showDialog(
+                                      context: context,
+                                      builder: (_) => AlertDialog(
+                                        title: const Text('Lupa Password?'),
+                                        content: const Text(
+                                          'Hubungi Admin IT atau Wali Kelas untuk reset password Anda.',
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () => Navigator.pop(context),
+                                            child: const Text('OK'),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                     style: TextButton.styleFrom(
                                       padding: EdgeInsets.zero,
                                       minimumSize: Size.zero,

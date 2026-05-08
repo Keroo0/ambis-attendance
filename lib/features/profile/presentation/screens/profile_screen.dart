@@ -1,6 +1,11 @@
+import 'package:drift/drift.dart' as drift;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
 import '../../../../core/constants/colors.dart';
 import '../../../../core/database/app_database.dart';
@@ -16,11 +21,306 @@ final _profileStudentProvider =
       .getSingleOrNull();
 });
 
-class ProfileScreen extends ConsumerWidget {
+class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  bool _uploadingPhoto = false;
+
+  // ── Foto Profil ──────────────────────────────────────────────────────────
+
+  Future<void> _pickAndUploadPhoto() async {
+    final picker = ImagePicker();
+    final source = await _showImageSourceDialog();
+    if (source == null) return;
+
+    final picked = await picker.pickImage(source: source, imageQuality: 85);
+    if (picked == null) return;
+
+    setState(() => _uploadingPhoto = true);
+    try {
+      var bytes = await picked.readAsBytes();
+
+      // Kompres hanya di native (flutter_image_compress tidak support web)
+      if (!kIsWeb) {
+        final compressed = await FlutterImageCompress.compressWithList(
+          bytes,
+          minWidth: 400,
+          minHeight: 400,
+          quality: 80,
+          format: CompressFormat.jpeg,
+        );
+        bytes = compressed;
+      }
+
+      final user = ref.read(authProvider).valueOrNull;
+      if (user == null) return;
+
+      final supabase = sb.Supabase.instance.client;
+      final path = '${user.id}/photo.jpg';
+
+      await supabase.storage.from('profile-photos').uploadBinary(
+            path,
+            bytes,
+            fileOptions: const sb.FileOptions(
+              contentType: 'image/jpeg',
+              upsert: true,
+            ),
+          );
+
+      final url = supabase.storage.from('profile-photos').getPublicUrl(path);
+      final now = DateTime.now().millisecondsSinceEpoch;
+
+      // Update Supabase users table
+      await supabase
+          .from('users')
+          .update({'avatar_url': url, 'updated_at': now}).eq('id', user.id);
+
+      // Update SQLite lokal
+      final db = ref.read(appDatabaseProvider);
+      await (db.update(db.users)..where((t) => t.id.equals(user.id))).write(
+        UsersCompanion(
+          avatarUrl: drift.Value(url),
+          updatedAt: drift.Value(now),
+        ),
+      );
+
+      ref.invalidate(authProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Foto profil berhasil diperbarui')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal upload foto: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingPhoto = false);
+    }
+  }
+
+  Future<ImageSource?> _showImageSourceDialog() async {
+    return showModalBottomSheet<ImageSource>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: const Color(0xFFC4C6D0),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Ubah Foto Profil',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+            ),
+            const SizedBox(height: 8),
+            if (!kIsWeb)
+              ListTile(
+                leading: const Icon(Icons.camera_alt_rounded),
+                title: const Text('Ambil dari Kamera'),
+                onTap: () => Navigator.pop(context, ImageSource.camera),
+              ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_rounded),
+              title: const Text('Pilih dari Galeri'),
+              onTap: () => Navigator.pop(context, ImageSource.gallery),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Ganti Password ───────────────────────────────────────────────────────
+
+  void _showChangePasswordSheet() {
+    final newPassCtrl = TextEditingController();
+    final confirmCtrl = TextEditingController();
+    bool obscureNew = true;
+    bool obscureConfirm = true;
+    bool loading = false;
+    String? errorMsg;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.fromLTRB(
+                24,
+                20,
+                24,
+                MediaQuery.of(ctx).viewInsets.bottom + 32,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFC4C6D0),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Ubah Password',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF001736),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Password baru minimal 6 karakter.',
+                    style: TextStyle(fontSize: 13, color: Color(0xFF747780)),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Password Baru
+                  _PasswordField(
+                    controller: newPassCtrl,
+                    label: 'Password Baru',
+                    hint: 'Masukkan password baru',
+                    obscure: obscureNew,
+                    onToggle: () =>
+                        setSheetState(() => obscureNew = !obscureNew),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Konfirmasi
+                  _PasswordField(
+                    controller: confirmCtrl,
+                    label: 'Konfirmasi Password',
+                    hint: 'Ulangi password baru',
+                    obscure: obscureConfirm,
+                    onToggle: () =>
+                        setSheetState(() => obscureConfirm = !obscureConfirm),
+                  ),
+
+                  if (errorMsg != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      errorMsg!,
+                      style: const TextStyle(
+                        color: AppColors.error,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: loading
+                          ? null
+                          : () async {
+                              final np = newPassCtrl.text.trim();
+                              final cp = confirmCtrl.text.trim();
+                              if (np.length < 6) {
+                                setSheetState(() => errorMsg =
+                                    'Password minimal 6 karakter');
+                                return;
+                              }
+                              if (np != cp) {
+                                setSheetState(() =>
+                                    errorMsg = 'Konfirmasi password tidak cocok');
+                                return;
+                              }
+                              setSheetState(
+                                  () => loading = true, );
+                              try {
+                                await sb.Supabase.instance.client.auth
+                                    .updateUser(
+                                  sb.UserAttributes(password: np),
+                                );
+                                if (ctx.mounted) Navigator.pop(ctx);
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content:
+                                          Text('Password berhasil diperbarui'),
+                                    ),
+                                  );
+                                }
+                              } on sb.AuthException catch (e) {
+                                setSheetState(() {
+                                  errorMsg = e.message;
+                                  loading = false;
+                                });
+                              } catch (e) {
+                                setSheetState(() {
+                                  errorMsg = 'Terjadi kesalahan: $e';
+                                  loading = false;
+                                });
+                              }
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF001736),
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size.fromHeight(50),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: loading
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Text(
+                              'Simpan Password',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 15,
+                              ),
+                            ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final user = ref.watch(authProvider).valueOrNull;
     final studentAsync = ref.watch(_profileStudentProvider);
 
@@ -37,6 +337,8 @@ class ProfileScreen extends ConsumerWidget {
                   _ProfileHeaderCard(
                     user: user,
                     className: studentAsync.valueOrNull?.className,
+                    uploadingPhoto: _uploadingPhoto,
+                    onEditPhoto: _pickAndUploadPhoto,
                   ),
                   const SizedBox(height: 20),
                   const _SectionLabel(text: 'Data Akademik'),
@@ -47,6 +349,8 @@ class ProfileScreen extends ConsumerWidget {
                   const SizedBox(height: 8),
                   _PengaturanCard(
                     onNotifikasi: () => context.push('/notifications'),
+                    onUbahPassword: _showChangePasswordSheet,
+                    onBantuan: () => _showBantuanDialog(context),
                   ),
                   const SizedBox(height: 24),
                   _LogoutButton(
@@ -95,6 +399,96 @@ class ProfileScreen extends ConsumerWidget {
       await ref.read(authProvider.notifier).logout();
       if (context.mounted) context.go('/login');
     }
+  }
+
+  void _showBantuanDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Bantuan & Layanan IT'),
+        content: const Text(
+          'Untuk kendala teknis, hubungi:\n\n'
+          'Admin IT SMAN 07 Kab. Tangerang\n'
+          'Jam kerja: Senin–Jumat, 07.00–15.00 WIB',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Password Field Helper ─────────────────────────────────────────────────────
+
+class _PasswordField extends StatelessWidget {
+  const _PasswordField({
+    required this.controller,
+    required this.label,
+    required this.hint,
+    required this.obscure,
+    required this.onToggle,
+  });
+
+  final TextEditingController controller;
+  final String label;
+  final String hint;
+  final bool obscure;
+  final VoidCallback onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label.toUpperCase(),
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF747780),
+            letterSpacing: 0.6,
+          ),
+        ),
+        const SizedBox(height: 6),
+        TextFormField(
+          controller: controller,
+          obscureText: obscure,
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: const TextStyle(color: Color(0xFFB0B3BB), fontSize: 14),
+            suffixIcon: IconButton(
+              icon: Icon(
+                obscure ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                size: 20,
+                color: const Color(0xFF747780),
+              ),
+              onPressed: onToggle,
+            ),
+            filled: true,
+            fillColor: const Color(0xFFF7F9FB),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: Color(0xFFC4C6D0)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: Color(0xFFC4C6D0)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide:
+                  const BorderSide(color: Color(0xFF006A63), width: 1.5),
+            ),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -163,10 +557,17 @@ class _TopBar extends StatelessWidget {
 // ── Profile Header Card ───────────────────────────────────────────────────────
 
 class _ProfileHeaderCard extends StatelessWidget {
-  const _ProfileHeaderCard({required this.user, required this.className});
+  const _ProfileHeaderCard({
+    required this.user,
+    required this.className,
+    required this.uploadingPhoto,
+    required this.onEditPhoto,
+  });
 
   final UserEntity? user;
   final String? className;
+  final bool uploadingPhoto;
+  final VoidCallback onEditPhoto;
 
   String _initials(String name) {
     final parts = name.trim().split(RegExp(r'\s+'));
@@ -178,6 +579,7 @@ class _ProfileHeaderCard extends StatelessWidget {
     final name = user?.fullname ?? '-';
     final nisn = user?.nisn ?? '-';
     final kelas = className ?? '-';
+    final avatarUrl = user?.avatarUrl;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -195,49 +597,76 @@ class _ProfileHeaderCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Stack(
-            children: [
-              Container(
-                width: 96,
-                height: 96,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppColors.tertiaryFixedDim,
-                  border: Border.all(
-                    color: AppColors.secondary,
-                    width: 3,
+          GestureDetector(
+            onTap: uploadingPhoto ? null : onEditPhoto,
+            child: Stack(
+              children: [
+                Container(
+                  width: 96,
+                  height: 96,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppColors.tertiaryFixedDim,
+                    border: Border.all(
+                      color: AppColors.secondary,
+                      width: 3,
+                    ),
                   ),
+                  clipBehavior: Clip.hardEdge,
+                  child: uploadingPhoto
+                      ? const Center(
+                          child: SizedBox(
+                            width: 28,
+                            height: 28,
+                            child: CircularProgressIndicator(strokeWidth: 2.5),
+                          ),
+                        )
+                      : avatarUrl != null
+                          ? Image.network(
+                              avatarUrl,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Center(
+                                child: Text(
+                                  _initials(name),
+                                  style: const TextStyle(
+                                    color: Color(0xFF001736),
+                                    fontSize: 32,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ),
+                            )
+                          : Center(
+                              child: Text(
+                                _initials(name),
+                                style: const TextStyle(
+                                  color: Color(0xFF001736),
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
                 ),
-                child: Center(
-                  child: Text(
-                    _initials(name),
-                    style: const TextStyle(
-                      color: Color(0xFF001736),
-                      fontSize: 32,
-                      fontWeight: FontWeight.w800,
+                Positioned(
+                  bottom: 2,
+                  right: 2,
+                  child: Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: AppColors.secondary,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                    child: const Icon(
+                      Icons.edit_rounded,
+                      color: Colors.white,
+                      size: 14,
                     ),
                   ),
                 ),
-              ),
-              Positioned(
-                bottom: 2,
-                right: 2,
-                child: Container(
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    color: AppColors.secondary,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 2),
-                  ),
-                  child: const Icon(
-                    Icons.edit_rounded,
-                    color: Colors.white,
-                    size: 14,
-                  ),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
           const SizedBox(height: 12),
           Text(
@@ -460,9 +889,15 @@ class _AkademikCard extends StatelessWidget {
 // ── Pengaturan Akun Card ──────────────────────────────────────────────────────
 
 class _PengaturanCard extends StatelessWidget {
-  const _PengaturanCard({required this.onNotifikasi});
+  const _PengaturanCard({
+    required this.onNotifikasi,
+    required this.onUbahPassword,
+    required this.onBantuan,
+  });
 
   final VoidCallback onNotifikasi;
+  final VoidCallback onUbahPassword;
+  final VoidCallback onBantuan;
 
   @override
   Widget build(BuildContext context) {
@@ -484,7 +919,7 @@ class _PengaturanCard extends StatelessWidget {
           _SettingsItem(
             icon: Icons.lock_reset_rounded,
             label: 'Ubah PIN / Password',
-            onTap: () {},
+            onTap: onUbahPassword,
             isFirst: true,
           ),
           _Divider(),
@@ -497,7 +932,7 @@ class _PengaturanCard extends StatelessWidget {
           _SettingsItem(
             icon: Icons.support_agent_rounded,
             label: 'Bantuan & Layanan IT',
-            onTap: () {},
+            onTap: onBantuan,
             isLast: true,
           ),
         ],
