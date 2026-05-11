@@ -12,6 +12,21 @@ import '../../../../core/constants/colors.dart';
 import '../../../../core/database/app_database.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 
+final _waliKelasProvider = FutureProvider.autoDispose<String?>((ref) async {
+  final user = ref.watch(authProvider).valueOrNull;
+  if (user == null) return null;
+  try {
+    final row = await sb.Supabase.instance.client
+        .from('students')
+        .select('homeroom_teacher')
+        .eq('id', user.id)
+        .maybeSingle();
+    return row?['homeroom_teacher'] as String?;
+  } catch (_) {
+    return null;
+  }
+});
+
 final _profileStudentProvider =
     FutureProvider.autoDispose<StudentEntity?>((ref) async {
   final user = ref.watch(authProvider).valueOrNull;
@@ -410,10 +425,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
+  static String _semesterLabel() {
+    final now = DateTime.now();
+    if (now.month >= 7) {
+      return 'Ganjil ${now.year}/${(now.year + 1).toString().substring(2)}';
+    } else {
+      return 'Genap ${now.year - 1}/${now.year.toString().substring(2)}';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(authProvider).valueOrNull;
     final studentAsync = ref.watch(_profileStudentProvider);
+    final waliKelas = ref.watch(_waliKelasProvider).valueOrNull;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F9FB),
@@ -434,7 +459,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   const SizedBox(height: 20),
                   const _SectionLabel(text: 'Data Akademik'),
                   const SizedBox(height: 8),
-                  _DataAkademikSection(isActive: user?.isActive ?? false),
+                  _DataAkademikSection(
+                    isActive: user?.isActive ?? false,
+                    waliKelas: waliKelas,
+                    semesterLabel: _semesterLabel(),
+                  ),
                   const SizedBox(height: 20),
                   const _SectionLabel(text: 'Pengaturan Akun'),
                   const SizedBox(height: 8),
@@ -838,20 +867,26 @@ class _SectionLabel extends StatelessWidget {
 // ── Data Akademik Section ─────────────────────────────────────────────────────
 
 class _DataAkademikSection extends StatelessWidget {
-  const _DataAkademikSection({required this.isActive});
+  const _DataAkademikSection({
+    required this.isActive,
+    required this.waliKelas,
+    required this.semesterLabel,
+  });
 
   final bool isActive;
+  final String? waliKelas;
+  final String semesterLabel;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        const _AkademikCard(
+        _AkademikCard(
           label: 'WALI KELAS',
           icon: Icons.person_rounded,
           child: Text(
-            'Drs. Budi Santoso, M.Pd.',
-            style: TextStyle(
+            waliKelas ?? '-',
+            style: const TextStyle(
               color: Color(0xFF001736),
               fontSize: 15,
               fontWeight: FontWeight.w700,
@@ -861,13 +896,13 @@ class _DataAkademikSection extends StatelessWidget {
         const SizedBox(height: 10),
         Row(
           children: [
-            const Expanded(
+            Expanded(
               child: _AkademikCard(
                 label: 'SEMESTER',
                 icon: Icons.calendar_today_rounded,
                 child: Text(
-                  'Ganjil 23/24',
-                  style: TextStyle(
+                  semesterLabel,
+                  style: const TextStyle(
                     color: Color(0xFF001736),
                     fontSize: 14,
                     fontWeight: FontWeight.w700,

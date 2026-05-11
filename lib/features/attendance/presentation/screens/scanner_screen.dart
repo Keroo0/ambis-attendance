@@ -380,15 +380,14 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
                   children: [
                     Expanded(
                       child: ClipRect(
-                        child: OverflowBox(
-                          alignment: Alignment.center,
-                          child: FittedBox(
-                            fit: BoxFit.cover,
-                            child: SizedBox(
-                              width: _controller!.value.previewSize!.height,
-                              height: _controller!.value.previewSize!.width,
-                              child: CameraPreview(_controller!),
-                            ),
+                        child: FittedBox(
+                          fit: BoxFit.cover,
+                          child: SizedBox(
+                            // previewSize is in landscape sensor coordinates;
+                            // swap w/h so the SizedBox is portrait-shaped.
+                            width: _controller!.value.previewSize?.height ?? 480,
+                            height: _controller!.value.previewSize?.width ?? 640,
+                            child: CameraPreview(_controller!),
                           ),
                         ),
                       ),
