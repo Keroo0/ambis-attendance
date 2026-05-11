@@ -379,9 +379,18 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
               : Column(
                   children: [
                     Expanded(
-                      child: AspectRatio(
-                        aspectRatio: _controller!.value.aspectRatio,
-                        child: CameraPreview(_controller!),
+                      child: ClipRect(
+                        child: OverflowBox(
+                          alignment: Alignment.center,
+                          child: FittedBox(
+                            fit: BoxFit.cover,
+                            child: SizedBox(
+                              width: _controller!.value.previewSize!.height,
+                              height: _controller!.value.previewSize!.width,
+                              child: CameraPreview(_controller!),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                     Padding(
