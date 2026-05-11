@@ -283,9 +283,11 @@ class _AttendanceInfo extends StatelessWidget {
         children: [
           _StatusBadge(label: 'Belum Absen', color: Color(0xFFECEEF0), textColor: Color(0xFF43474F)),
           SizedBox(width: 8),
-          Text(
-            'Belum ada absensi hari ini',
-            style: TextStyle(fontSize: 12, color: Color(0xFF747780)),
+          Flexible(
+            child: Text(
+              'Belum ada absensi hari ini',
+              style: TextStyle(fontSize: 12, color: Color(0xFF747780)),
+            ),
           ),
         ],
       );

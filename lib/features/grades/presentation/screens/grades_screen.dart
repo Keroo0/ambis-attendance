@@ -631,7 +631,7 @@ class _GradesChartState extends State<_GradesChart> {
     final grades = widget.grades;
     final maxY = grades.fold<double>(
       80,
-      (m, g) => [m, g.utsScore, g.uasScore].reduce(
+      (m, g) => [m, g.utsScore ?? 0, g.uasScore ?? 0].reduce(
         (a, b) => a > b ? a : b,
       ),
     );
@@ -642,13 +642,13 @@ class _GradesChartState extends State<_GradesChart> {
         x: i,
         barRods: [
           BarChartRodData(
-            toY: g.utsScore,
+            toY: g.utsScore ?? 0,
             color: _colorUTS.withAlpha(touched ? 255 : 200),
             width: 8,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
           ),
           BarChartRodData(
-            toY: g.uasScore,
+            toY: g.uasScore ?? 0,
             color: _colorUAS.withAlpha(touched ? 255 : 200),
             width: 8,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
