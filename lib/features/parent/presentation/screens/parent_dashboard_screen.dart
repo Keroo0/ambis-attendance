@@ -71,32 +71,41 @@ class ParentDashboardScreen extends ConsumerWidget {
             ],
           ),
         ),
-        data: (child) => child == null
-            ? const _NoChildState()
-            : ListView(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-                children: [
-                  IntrinsicHeight(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Expanded(
-                          flex: 2,
-                          child: _ProfileCard(child: child),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _AttendanceCard(
-                            onTap: () => context.push('/parent-history'),
-                          ),
-                        ),
-                      ],
+        data: (child) {
+          if (child == null) return const _NoChildState();
+          final attendanceCountAsync =
+              ref.watch(childAttendanceThisMonthProvider);
+          final attendanceStr = attendanceCountAsync.when(
+            data: (c) => '$c',
+            loading: () => '…',
+            error: (_, __) => '-',
+          );
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+            children: [
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: _ProfileCard(child: child),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  _GradesSummaryCard(child: child),
-                ],
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _AttendanceCard(
+                        countStr: attendanceStr,
+                        onTap: () => context.push('/parent-history'),
+                      ),
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(height: 16),
+              _GradesSummaryCard(child: child),
+            ],
+          );
+        },
       ),
     );
   }
@@ -204,10 +213,11 @@ class _ProfileCard extends StatelessWidget {
   }
 }
 
-// ── Attendance Card (kosong — data belum tersedia) ────────────────────────────
+// ── Attendance Card ───────────────────────────────────────────────────────────
 
 class _AttendanceCard extends StatelessWidget {
-  const _AttendanceCard({required this.onTap});
+  const _AttendanceCard({required this.countStr, required this.onTap});
+  final String countStr;
   final VoidCallback onTap;
 
   @override
@@ -238,10 +248,10 @@ class _AttendanceCard extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Column(
+                    Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
+                        const Text(
                           'KEHADIRAN\nBULAN INI',
                           style: TextStyle(
                             fontSize: 10,
@@ -251,10 +261,10 @@ class _AttendanceCard extends StatelessWidget {
                             height: 1.4,
                           ),
                         ),
-                        SizedBox(height: 6),
+                        const SizedBox(height: 6),
                         Text(
-                          '-',
-                          style: TextStyle(
+                          countStr,
+                          style: const TextStyle(
                             fontSize: 30,
                             fontWeight: FontWeight.w700,
                             color: Color(0xFF191C1E),
@@ -268,8 +278,8 @@ class _AttendanceCard extends StatelessWidget {
                       children: [
                         const Divider(height: 1, color: Color(0xFFECEEF0)),
                         const SizedBox(height: 8),
-                        Row(
-                          children: const [
+                        const Row(
+                          children: [
                             Icon(Icons.arrow_forward_ios_rounded,
                                 size: 10, color: Color(0xFF006A63)),
                             SizedBox(width: 3),
@@ -306,6 +316,12 @@ class _GradesSummaryCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final gradesAsync = ref.watch(childGradesSummaryProvider);
     final avgAsync = ref.watch(childOverallAverageProvider);
+    final attendanceAsync = ref.watch(childAttendanceThisMonthProvider);
+    final attendanceStr = attendanceAsync.when(
+      data: (c) => '$c',
+      loading: () => '…',
+      error: (_, __) => '-',
+    );
 
     return Container(
       clipBehavior: Clip.hardEdge,
@@ -364,7 +380,9 @@ class _GradesSummaryCard extends ConsumerWidget {
                       children: [
                         Expanded(child: _AvgMiniCard(avgAsync: avgAsync)),
                         const SizedBox(width: 8),
-                        const Expanded(child: _AttendanceMiniCard()),
+                        Expanded(
+                            child: _AttendanceMiniCard(
+                                countStr: attendanceStr)),
                       ],
                     ),
                     const SizedBox(height: 12),
@@ -475,7 +493,8 @@ class _AvgMiniCard extends StatelessWidget {
 }
 
 class _AttendanceMiniCard extends StatelessWidget {
-  const _AttendanceMiniCard();
+  const _AttendanceMiniCard({required this.countStr});
+  final String countStr;
 
   @override
   Widget build(BuildContext context) {
@@ -488,23 +507,24 @@ class _AttendanceMiniCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'ABSENSI',
+                const Text(
+                  'HADIR\nBULAN INI',
                   style: TextStyle(
                     fontSize: 9,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 0.4,
                     color: Color(0xFF43474F),
+                    height: 1.4,
                   ),
                 ),
-                SizedBox(height: 4),
+                const SizedBox(height: 4),
                 Text(
-                  '-',
-                  style: TextStyle(
+                  countStr,
+                  style: const TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w700,
                     color: Color(0xFF002B5B),

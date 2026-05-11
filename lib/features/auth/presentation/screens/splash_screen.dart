@@ -22,7 +22,7 @@ class SplashScreen extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Image(
-                image: AssetImage('assets/images/logoAMBIS.png'),
+                image: AssetImage('assets/images/LogoAMBIS.png'),
                 height: 120,
               ),
               SizedBox(height: Spacing.md),

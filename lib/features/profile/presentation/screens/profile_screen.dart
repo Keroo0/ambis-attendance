@@ -97,8 +97,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       }
     } catch (e) {
       if (mounted) {
+        final msg = e is sb.StorageException
+            ? e.message
+            : e is Exception
+                ? e.toString().replaceFirst('Exception: ', '')
+                : 'Terjadi kesalahan.';
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal upload foto: $e')),
+          SnackBar(content: Text('Gagal upload foto: $msg')),
         );
       }
     } finally {
@@ -516,7 +521,7 @@ class _TopBar extends StatelessWidget {
             ),
             child: Center(
               child: Image.asset(
-                'assets/images/logoAMBIS.png',
+                'assets/images/LogoAMBIS.png',
                 width: 24,
                 height: 24,
                 errorBuilder: (_, __, ___) => const Text(

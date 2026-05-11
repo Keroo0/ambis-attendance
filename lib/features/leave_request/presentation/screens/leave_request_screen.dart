@@ -539,8 +539,8 @@ class _LeaveRequestScreenState extends ConsumerState<LeaveRequestScreen> {
                                 child: CircularProgressIndicator()),
                           ),
                           error: (e, _) => Text(
-                            'Gagal memuat riwayat: $e',
-                            style: const TextStyle(color: Colors.red),
+                            'Gagal memuat riwayat. Coba lagi nanti.',
+                            style: const TextStyle(color: Colors.red, fontSize: 13),
                           ),
                           data: (leaves) => leaves.isEmpty
                               ? const Padding(

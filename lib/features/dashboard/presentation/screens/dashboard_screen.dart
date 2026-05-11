@@ -105,7 +105,7 @@ class _TopBar extends StatelessWidget {
             ),
             clipBehavior: Clip.hardEdge,
             child: Image.asset(
-              'assets/images/logoAMBIS.png',
+              'assets/images/LogoAMBIS.png',
               fit: BoxFit.cover,
               errorBuilder: (_, __, ___) => const Icon(
                 Icons.school_rounded,

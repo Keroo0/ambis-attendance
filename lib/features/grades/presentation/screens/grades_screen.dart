@@ -34,7 +34,7 @@ class _GradesScreenState extends ConsumerState<GradesScreen> {
                 children: [
                   ClipOval(
                     child: Image.asset(
-                      'assets/images/logoAMBIS.png',
+                      'assets/images/LogoAMBIS.png',
                       width: 32,
                       height: 32,
                       fit: BoxFit.cover,

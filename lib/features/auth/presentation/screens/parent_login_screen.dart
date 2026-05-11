@@ -19,7 +19,6 @@ class _ParentLoginScreenState extends ConsumerState<ParentLoginScreen> {
   final _nisnCtrl = TextEditingController();
   final _pinCtrl = TextEditingController();
   bool _obscure = true;
-  bool _rememberMe = false;
 
   @override
   void dispose() {
@@ -265,34 +264,6 @@ class _ParentLoginScreenState extends ConsumerState<ParentLoginScreen> {
                         validator: Validators.password,
                         enabled: !isLoading,
                         onFieldSubmitted: (_) => _submit(),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Remember me
-                      Row(
-                        children: [
-                          SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: Checkbox(
-                              value: _rememberMe,
-                              onChanged: (v) =>
-                                  setState(() => _rememberMe = v ?? false),
-                              activeColor: const Color(0xFF002B5B),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          const Text(
-                            'Ingat saya',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Color(0xFF43474F),
-                            ),
-                          ),
-                        ],
                       ),
                       const SizedBox(height: 28),
 
