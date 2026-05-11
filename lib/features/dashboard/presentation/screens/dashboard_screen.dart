@@ -61,7 +61,7 @@ class DashboardScreen extends ConsumerWidget {
                   _AttendanceStatusCard(attendance: todayAtt),
                   const SizedBox(height: 16),
                   _QuickActionsGrid(
-                    onAbsensi: () => context.push('/attendance'),
+                    onAbsensi: () => context.go('/attendance'),
                     onNilai: () => context.go('/grades'),
                     onIzin: () => context.push('/leave'),
                   ),

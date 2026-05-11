@@ -56,7 +56,7 @@ class AttendanceRepository {
     required String studentId,
     required AttendanceKind kind,
     required Float32List capturedEmbedding,
-    required Position position,
+    Position? position,
     String? deviceId,
   }) async {
     // 1. Compare embeddings.
@@ -76,9 +76,10 @@ class AttendanceRepository {
       );
     }
 
-    // 2. Geofence + (stub) liveness.
-    final withinGeofence = LocationService.isWithinGeofence(position);
-    if (!withinGeofence) {
+    // 2. Geofence check — skipped when geofence is disabled (position == null).
+    final withinGeofence =
+        position != null && LocationService.isWithinGeofence(position);
+    if (position != null && !withinGeofence) {
       throw GeofenceException(
         'Anda berada di luar radius sekolah '
         '(${LocationService.distanceToSchool(position).toStringAsFixed(0)} m).',
@@ -109,12 +110,12 @@ class AttendanceRepository {
           ? drift.Value(timeStr)
           : drift.Value(existing?.timeOut),
       status: const drift.Value('present'),
-      isWithinGeofence: const drift.Value(true),
+      isWithinGeofence: drift.Value(withinGeofence),
       // TODO(phase2): wire real liveness challenge result.
       livenessVerified: const drift.Value(true),
       faceMatchScore: drift.Value(score),
-      locationLat: drift.Value(position.latitude),
-      locationLng: drift.Value(position.longitude),
+      locationLat: drift.Value(position?.latitude),
+      locationLng: drift.Value(position?.longitude),
       deviceId: drift.Value(deviceId),
       notes: const drift.Value(null),
       syncedAt: const drift.Value(null),

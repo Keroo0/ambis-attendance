@@ -17,8 +17,33 @@ final _profileStudentProvider =
   final user = ref.watch(authProvider).valueOrNull;
   if (user == null) return null;
   final db = ref.watch(appDatabaseProvider);
-  return (db.select(db.students)
-        ..where((s) => s.id.equals(user.id)))
+
+  try {
+    final row = await sb.Supabase.instance.client
+        .from('students')
+        .select('id, nisn, class, parent_id, date_of_birth, gender, address, phone_parent, created_at, updated_at')
+        .eq('id', user.id)
+        .maybeSingle();
+    if (row != null) {
+      final now = DateTime.now().millisecondsSinceEpoch;
+      await db.into(db.students).insertOnConflictUpdate(
+        StudentsCompanion(
+          id: drift.Value(row['id'] as String),
+          nisn: drift.Value(row['nisn'] as String),
+          className: drift.Value(row['class'] as String),
+          parentId: drift.Value(row['parent_id'] as String?),
+          dateOfBirth: drift.Value(row['date_of_birth'] as String?),
+          gender: drift.Value(row['gender'] as String?),
+          address: drift.Value(row['address'] as String?),
+          phoneParent: drift.Value(row['phone_parent'] as String?),
+          createdAt: drift.Value((row['created_at'] as int?) ?? now),
+          updatedAt: drift.Value((row['updated_at'] as int?) ?? now),
+        ),
+      );
+    }
+  } catch (_) {}
+
+  return (db.select(db.students)..where((s) => s.id.equals(user.id)))
       .getSingleOrNull();
 });
 
@@ -568,50 +593,50 @@ class _TopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 56,
-      color: Colors.white,
+      height: 64,
       padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          bottom: BorderSide(color: Color(0xFFE0E3E8)),
+        ),
+      ),
       child: Row(
         children: [
           Container(
             width: 36,
             height: 36,
-            decoration: BoxDecoration(
-              color: const Color(0xFF002B5B),
-              borderRadius: BorderRadius.circular(8),
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: Color(0xFF002B5B),
             ),
-            child: Center(
-              child: Image.asset(
-                'assets/images/LogoAMBIS.png',
-                width: 24,
-                height: 24,
-                errorBuilder: (_, __, ___) => const Text(
-                  'A',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 18,
-                  ),
-                ),
+            clipBehavior: Clip.hardEdge,
+            child: Image.asset(
+              'assets/images/LogoAMBIS.png',
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => const Icon(
+                Icons.school_rounded,
+                color: Colors.white,
+                size: 20,
               ),
             ),
           ),
           const SizedBox(width: 10),
-          const Text(
-            'AMBIS',
-            style: TextStyle(
-              color: Color(0xFF002B5B),
-              fontWeight: FontWeight.w900,
-              fontSize: 20,
-              letterSpacing: -0.5,
+          const Expanded(
+            child: Text(
+              'SMAN 07 Tangerang',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF002B5B),
+              ),
             ),
           ),
-          const Spacer(),
           IconButton(
             onPressed: onNotification,
             icon: const Icon(
               Icons.notifications_outlined,
-              color: Color(0xFF002B5B),
+              color: Color(0xFF43474F),
             ),
           ),
         ],

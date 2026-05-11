@@ -248,19 +248,6 @@ class _LeaveRequestScreenState extends ConsumerState<LeaveRequestScreen> {
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(12),
-                            border: Border(
-                              left: const BorderSide(
-                                  color: Color(0xFF47FBEB), width: 4),
-                              top: BorderSide(
-                                  color: const Color(0xFFC4C6D0)
-                                      .withAlpha(80)),
-                              right: BorderSide(
-                                  color: const Color(0xFFC4C6D0)
-                                      .withAlpha(80)),
-                              bottom: BorderSide(
-                                  color: const Color(0xFFC4C6D0)
-                                      .withAlpha(80)),
-                            ),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withAlpha(13),
@@ -269,10 +256,23 @@ class _LeaveRequestScreenState extends ConsumerState<LeaveRequestScreen> {
                               ),
                             ],
                           ),
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
+                          clipBehavior: Clip.antiAlias,
+                          child: IntrinsicHeight(
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                // Left teal accent bar
+                                Container(
+                                  width: 4,
+                                  color: const Color(0xFF47FBEB),
+                                ),
+                                Expanded(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(16),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
                               // Permit type
                               const _SectionLabel('PERMIT TYPE'),
                               const SizedBox(height: 8),
@@ -481,7 +481,12 @@ class _LeaveRequestScreenState extends ConsumerState<LeaveRequestScreen> {
                                   ),
                                 ),
                               ),
-                            ],
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                         const SizedBox(height: 20),
@@ -538,9 +543,9 @@ class _LeaveRequestScreenState extends ConsumerState<LeaveRequestScreen> {
                             child: Center(
                                 child: CircularProgressIndicator()),
                           ),
-                          error: (e, _) => Text(
+                          error: (e, _) => const Text(
                             'Gagal memuat riwayat. Coba lagi nanti.',
-                            style: const TextStyle(color: Colors.red, fontSize: 13),
+                            style: TextStyle(color: Colors.red, fontSize: 13),
                           ),
                           data: (leaves) => leaves.isEmpty
                               ? const Padding(

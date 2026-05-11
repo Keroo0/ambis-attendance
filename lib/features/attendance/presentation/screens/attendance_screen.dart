@@ -49,6 +49,7 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen>
   AttendanceKind _kind = AttendanceKind.checkIn;
   AttendanceEntity? _todayRecord;
   bool _recordLoading = true;
+  bool _geofenceEnabled = true;
 
   bool get _allDone =>
       _todayRecord?.timeIn != null && _todayRecord?.timeOut != null;
@@ -158,11 +159,17 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen>
   // ── Location init ─────────────────────────────────────────────────
 
   Future<void> _initLocation() async {
+    if (!mounted) return;
+    setState(() {
+      _locState = _LocationState.loading;
+      _locMsg = 'Mendeteksi lokasi...';
+    });
     try {
       final settings = await ref.read(geofenceSettingsProvider.future);
+      if (!mounted) return;
+      setState(() => _geofenceEnabled = settings.enabled);
 
       if (!settings.enabled) {
-        if (!mounted) return;
         setState(() {
           _locState = _LocationState.ok;
           _locMsg = 'Lokasi absensi dinonaktifkan (bypass)';
@@ -236,8 +243,12 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen>
       return;
     }
 
-    if (_locState != _LocationState.ok || _position == null) {
+    if (_locState != _LocationState.ok) {
       _snack('Pastikan lokasi Anda berada di area sekolah.', isError: true);
+      return;
+    }
+    if (_geofenceEnabled && _position == null) {
+      _snack('Lokasi belum berhasil dideteksi. Coba lagi.', isError: true);
       return;
     }
 
@@ -363,7 +374,7 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen>
             studentId: user.id,
             kind: _kind,
             capturedEmbedding: emb,
-            position: _position!,
+            position: _position,
           );
       ref.read(rateLimitProvider.notifier).recordSuccess();
       if (!mounted) return;
@@ -545,112 +556,83 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen>
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: Column(
                       children: [
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 16),
 
-                    // Title — dynamic based on auto-detected kind
-                    Text(
-                      _kind == AttendanceKind.checkIn
-                          ? 'Absen Masuk'
-                          : 'Absen Pulang',
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF001736),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _kind == AttendanceKind.checkIn
-                          ? 'Arahkan wajah ke kamera untuk absen masuk.'
-                          : 'Arahkan wajah ke kamera untuk absen pulang.',
-                      textAlign: TextAlign.center,
-                      style:
-                          const TextStyle(fontSize: 13, color: Color(0xFF43474F)),
-                    ),
-                    if (_kind == AttendanceKind.checkOut &&
-                        _todayRecord?.timeIn != null) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        'Masuk tercatat: ${_todayRecord!.timeIn}',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                            fontSize: 12, color: Color(0xFF006A63)),
-                      ),
-                    ],
-                    const SizedBox(height: 16),
-
-                    // Camera viewfinder
-                    _Viewfinder(
-                      controller: _camCtrl,
-                      loading: _camLoading,
-                      error: _camError,
-                      lineAnim: _lineAnim,
-                    ),
-
-                    // Scan status
-                    if (_scanning && _scanStatus.isNotEmpty) ...[
-                      const SizedBox(height: 10),
-                      Text(
-                        _scanStatus,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: _scanColor,
+                        // Camera viewfinder
+                        _Viewfinder(
+                          controller: _camCtrl,
+                          loading: _camLoading,
+                          error: _camError,
+                          lineAnim: _lineAnim,
                         ),
-                      ),
-                    ],
 
-                    const SizedBox(height: 16),
+                        const SizedBox(height: 12),
 
-                    // Location card
-                    _LocationCard(
-                        state: _locState, message: _locMsg),
-
-                    const SizedBox(height: 20),
-
-                    // Submit button
-                    SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: ElevatedButton.icon(
-                        onPressed: canSubmit ? _onSubmit : null,
-                        icon: _scanning
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                    strokeWidth: 2, color: Colors.white),
-                              )
-                            : const Icon(Icons.how_to_reg_rounded,
-                                size: 20),
-                        label: Text(
-                          _scanning
-                              ? 'Sedang Memverifikasi...'
-                              : _kind == AttendanceKind.checkIn
-                                  ? 'Absen Masuk'
-                                  : 'Absen Pulang',
-                          style: const TextStyle(
-                              fontSize: 15, fontWeight: FontWeight.w600),
+                        // Check-in / Check-out time cards
+                        _TimeCardRow(
+                          timeIn: _todayRecord?.timeIn,
+                          timeOut: _todayRecord?.timeOut,
                         ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF001736),
-                          foregroundColor: Colors.white,
-                          disabledBackgroundColor:
-                              const Color(0xFF001736).withAlpha(100),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10)),
-                          elevation: 2,
+
+                        const SizedBox(height: 12),
+
+                        // Status bar
+                        _StatusBar(
+                          locState: _locState,
+                          locMsg: _locMsg,
+                          scanning: _scanning,
+                          scanStatus: _scanStatus,
+                          scanColor: _scanColor,
+                          onRetry: _locState == _LocationState.error
+                              ? _initLocation
+                              : null,
                         ),
-                      ),
+
+                        const SizedBox(height: 16),
+
+                        // Submit button
+                        SizedBox(
+                          width: double.infinity,
+                          height: 52,
+                          child: ElevatedButton.icon(
+                            onPressed: canSubmit ? _onSubmit : null,
+                            icon: _scanning
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white),
+                                  )
+                                : const Icon(Icons.login, size: 20),
+                            label: Text(
+                              _scanning
+                                  ? 'Sedang Memverifikasi...'
+                                  : _kind == AttendanceKind.checkIn
+                                      ? 'Konfirmasi Check-In'
+                                      : 'Konfirmasi Check-Out',
+                              style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF1565C0),
+                              foregroundColor: Colors.white,
+                              disabledBackgroundColor:
+                                  const Color(0xFF1565C0).withAlpha(100),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10)),
+                              elevation: 2,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                      ],
                     ),
-                    const SizedBox(height: 24),
-                  ],
+                  ),
                 ),
-              ),
-                ),  // closes Expanded
-              ],    // closes Column children
-            );      // closes return Column
+              ],
+            );
           },
         ),
       ),
@@ -813,7 +795,28 @@ class _Viewfinder extends StatelessWidget {
             else if (error != null)
               _CameraErrorView(message: error!)
             else
-              CameraPreview(controller!),
+              LayoutBuilder(
+                builder: (_, box) {
+                  final ctrl = controller!;
+                  final a = ctrl.value.aspectRatio;
+                  final size = box.maxWidth;
+                  // Cover the 1:1 square without distortion
+                  final w = a >= 1.0 ? size * a : size;
+                  final h = a >= 1.0 ? size : size / a;
+                  return ClipRect(
+                    child: OverflowBox(
+                      maxWidth: double.infinity,
+                      maxHeight: double.infinity,
+                      alignment: Alignment.center,
+                      child: SizedBox(
+                        width: w,
+                        height: h,
+                        child: CameraPreview(ctrl),
+                      ),
+                    ),
+                  );
+                },
+              ),
 
             // Scan line
             if (!loading && error == null)
@@ -850,6 +853,37 @@ class _Viewfinder extends StatelessWidget {
             const Positioned.fill(
               child: CustomPaint(painter: _CornerPainter()),
             ),
+
+            // Info pill
+            if (!loading && error == null)
+              Positioned(
+                bottom: 12,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(100),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.info_outline,
+                            color: Colors.white, size: 13),
+                        SizedBox(width: 5),
+                        Text(
+                          'Arahkan wajah ke kamera',
+                          style: TextStyle(
+                              color: Colors.white, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -883,137 +917,180 @@ class _CameraErrorView extends StatelessWidget {
       );
 }
 
-// ── Location card ──────────────────────────────────────────────────────────
+// ── Time card row ──────────────────────────────────────────────────────────
 
-class _LocationCard extends StatelessWidget {
-  const _LocationCard({required this.state, required this.message});
+class _TimeCardRow extends StatelessWidget {
+  const _TimeCardRow({required this.timeIn, required this.timeOut});
 
-  final _LocationState state;
-  final String message;
+  final String? timeIn;
+  final String? timeOut;
 
   @override
   Widget build(BuildContext context) {
-    final isOk = state == _LocationState.ok;
-    final isError = state == _LocationState.error;
+    return Row(
+      children: [
+        Expanded(child: _TimeCard(label: 'Check-in', time: timeIn)),
+        const SizedBox(width: 12),
+        Expanded(child: _TimeCard(label: 'Check-out', time: timeOut)),
+      ],
+    );
+  }
+}
 
-    final borderColor = isOk
-        ? const Color(0xFF006A63)
-        : isError
-            ? Colors.red
-            : const Color(0xFFC4C6D0);
+class _TimeCard extends StatelessWidget {
+  const _TimeCard({required this.label, required this.time});
 
+  final String label;
+  final String? time;
+
+  String get _display {
+    if (time == null) return '--:--';
+    return time!.length >= 5 ? time!.substring(0, 5) : time!;
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(10),
-        border: Border(
-          left: BorderSide(color: borderColor, width: 4),
-          top: BorderSide(color: const Color(0xFFE0E3E5).withAlpha(180)),
-          right: BorderSide(color: const Color(0xFFE0E3E5).withAlpha(180)),
-          bottom: BorderSide(color: const Color(0xFFE0E3E5).withAlpha(180)),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(8),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
+        border: Border.all(color: const Color(0xFFE0E3E5)),
+      ),
+      child: Column(
+        children: [
+          Text(
+            label,
+            style: const TextStyle(fontSize: 12, color: Color(0xFF747780)),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            _display,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF191C1E),
+            ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ── Status bar ─────────────────────────────────────────────────────────────
+
+class _StatusBar extends StatelessWidget {
+  const _StatusBar({
+    required this.locState,
+    required this.locMsg,
+    required this.scanning,
+    required this.scanStatus,
+    required this.scanColor,
+    this.onRetry,
+  });
+
+  final _LocationState locState;
+  final String locMsg;
+  final bool scanning;
+  final String scanStatus;
+  final Color scanColor;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE0E3E5)),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: const Color(0xFF006A63).withAlpha(25),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.location_on_rounded,
-                color: Color(0xFF006A63), size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'STATUS LOKASI',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.8,
-                    color: Color(0xFF43474F),
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  message,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFF191C1E),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                if (state == _LocationState.loading)
-                  const SizedBox(
-                    height: 2,
-                    child: LinearProgressIndicator(
-                      color: Color(0xFF006A63),
-                      backgroundColor: Color(0xFFECEEF0),
-                    ),
-                  )
-                else if (isOk)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFECFDF5),
-                      borderRadius: BorderRadius.circular(100),
-                      border: Border.all(
-                          color: const Color(0xFF34D399).withAlpha(120)),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.check_circle_rounded,
-                            size: 13, color: Color(0xFF059669)),
-                        SizedBox(width: 4),
-                        Text(
-                          'Lokasi Sesuai (SAFE)',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                            color: Color(0xFF059669),
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                else
-                  const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.error_outline, size: 13, color: Colors.red),
-                      SizedBox(width: 4),
-                      Text(
-                        'Lokasi Tidak Sesuai',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.red,
-                        ),
-                      ),
-                    ],
-                  ),
-              ],
-            ),
-          ),
+          _buildIcon(),
+          const SizedBox(width: 10),
+          Expanded(child: _buildContent()),
         ],
       ),
+    );
+  }
+
+  Widget _buildIcon() {
+    if (locState == _LocationState.loading) {
+      return const SizedBox(
+        width: 18,
+        height: 18,
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          color: Color(0xFF006A63),
+        ),
+      );
+    }
+    if (locState == _LocationState.error) {
+      return const Icon(Icons.error_outline, color: Colors.red, size: 20);
+    }
+    if (scanning) {
+      return const SizedBox(
+        width: 18,
+        height: 18,
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          color: Color(0xFF006A63),
+        ),
+      );
+    }
+    return const Icon(Icons.face_retouching_natural,
+        color: Color(0xFF006A63), size: 20);
+  }
+
+  Widget _buildContent() {
+    if (locState == _LocationState.loading) {
+      return const Text(
+        'Mendeteksi lokasi...',
+        style: TextStyle(fontSize: 13, color: Color(0xFF43474F)),
+      );
+    }
+    if (locState == _LocationState.error) {
+      return Row(
+        children: [
+          Expanded(
+            child: Text(
+              locMsg,
+              style: const TextStyle(fontSize: 13, color: Colors.red),
+            ),
+          ),
+          if (onRetry != null) ...[
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: onRetry,
+              child: const Text(
+                'Coba Lagi',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF006A63),
+                  decoration: TextDecoration.underline,
+                ),
+              ),
+            ),
+          ],
+        ],
+      );
+    }
+    if (scanning && scanStatus.isNotEmpty) {
+      return Text(
+        scanStatus,
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+          color: scanColor,
+        ),
+      );
+    }
+    return const Text(
+      'Tekan tombol presensi untuk mencocokkan wajah',
+      style: TextStyle(fontSize: 13, color: Color(0xFF43474F)),
     );
   }
 }

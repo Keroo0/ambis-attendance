@@ -560,10 +560,10 @@ class _LegendRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
+    return const Wrap(
       spacing: 12,
       runSpacing: 6,
-      children: const [
+      children: [
         _LegendDot(color: Color(0xFF16A34A), label: 'Hadir'),
         _LegendDot(color: Color(0xFFEA580C), label: 'Terlambat'),
         _LegendDot(color: Color(0xFFFABD00), label: 'Izin'),

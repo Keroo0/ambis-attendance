@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../features/attendance/presentation/screens/attendance_screen.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/parent_login_screen.dart';
@@ -75,10 +74,6 @@ GoRouter buildRouter(Ref ref) {
         builder: (_, state) => EnrollmentScreen(
           guestUserId: state.pathParameters['userId'],
         ),
-      ),
-      GoRoute(
-        path: '/attendance',
-        builder: (_, __) => const AttendanceScreen(),
       ),
       GoRoute(
         path: '/leave',

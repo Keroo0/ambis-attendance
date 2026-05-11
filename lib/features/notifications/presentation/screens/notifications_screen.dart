@@ -56,9 +56,9 @@ class NotificationsScreen extends ConsumerWidget {
               const Icon(Icons.error_outline_rounded,
                   size: 48, color: Color(0xFFC4C6D0)),
               const SizedBox(height: 12),
-              Text(
+              const Text(
                 'Gagal memuat notifikasi',
-                style: const TextStyle(
+                style: TextStyle(
                     color: Color(0xFF43474F), fontSize: 14),
               ),
               const SizedBox(height: 12),

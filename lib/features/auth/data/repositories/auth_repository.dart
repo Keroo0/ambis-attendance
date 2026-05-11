@@ -98,6 +98,36 @@ class AuthRepository {
           ),
         );
 
+    if (entity.role == 'siswa') {
+      try {
+        final studentRow = await supabase
+            .from('students')
+            .select(
+              'id, nisn, class, parent_id, date_of_birth, gender, address, phone_parent, created_at, updated_at',
+            )
+            .eq('id', entity.id)
+            .maybeSingle();
+        if (studentRow != null) {
+          await db.into(db.students).insertOnConflictUpdate(
+            StudentsCompanion(
+              id: drift.Value(studentRow['id'] as String),
+              nisn: drift.Value(studentRow['nisn'] as String),
+              className: drift.Value(studentRow['class'] as String),
+              parentId: drift.Value(studentRow['parent_id'] as String?),
+              dateOfBirth: drift.Value(studentRow['date_of_birth'] as String?),
+              gender: drift.Value(studentRow['gender'] as String?),
+              address: drift.Value(studentRow['address'] as String?),
+              phoneParent: drift.Value(studentRow['phone_parent'] as String?),
+              createdAt: drift.Value((studentRow['created_at'] as int?) ?? now),
+              updatedAt: drift.Value((studentRow['updated_at'] as int?) ?? now),
+            ),
+          );
+        }
+      } catch (_) {
+        // Non-fatal — student data will be fetched lazily when needed.
+      }
+    }
+
     await storage.saveSession(
       accessToken: session.accessToken,
       refreshToken: session.refreshToken ?? '',

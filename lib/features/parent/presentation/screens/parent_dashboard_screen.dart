@@ -273,12 +273,12 @@ class _AttendanceCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    Column(
+                    const Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Divider(height: 1, color: Color(0xFFECEEF0)),
-                        const SizedBox(height: 8),
-                        const Row(
+                        Divider(height: 1, color: Color(0xFFECEEF0)),
+                        SizedBox(height: 8),
+                        Row(
                           children: [
                             Icon(Icons.arrow_forward_ios_rounded,
                                 size: 10, color: Color(0xFF006A63)),

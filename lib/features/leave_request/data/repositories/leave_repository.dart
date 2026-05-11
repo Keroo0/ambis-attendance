@@ -62,6 +62,19 @@ class LeaveRepository {
     final id = _uuid.v4();
     final now = DateTime.now().millisecondsSinceEpoch;
 
+    await sb.Supabase.instance.client.from('leave_requests').insert({
+      'id': id,
+      'student_id': studentId,
+      'type': mapType(uiType),
+      'reason': reason.isEmpty ? null : reason,
+      'date_from': _formatDate(dateFrom),
+      'date_to': _formatDate(dateTo),
+      'attachment_url': attachmentUrl,
+      'status': 'pending',
+      'created_at': now,
+      'updated_at': now,
+    });
+
     await _db.into(_db.leaveRequests).insert(
       LeaveRequestsCompanion.insert(
         id: id,
