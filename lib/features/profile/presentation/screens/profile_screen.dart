@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
@@ -41,11 +42,36 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final picked = await picker.pickImage(source: source, imageQuality: 85);
     if (picked == null) return;
 
+    CroppedFile? croppedFile;
+    if (!kIsWeb) {
+      croppedFile = await ImageCropper().cropImage(
+        sourcePath: picked.path,
+        uiSettings: [
+          AndroidUiSettings(
+            toolbarTitle: 'Atur Foto Profil',
+            toolbarColor: const Color(0xFF002B5B),
+            toolbarWidgetColor: Colors.white,
+            activeControlsWidgetColor: AppColors.secondary,
+            initAspectRatio: CropAspectRatioPreset.square,
+            lockAspectRatio: true,
+            cropStyle: CropStyle.circle,
+          ),
+          IOSUiSettings(
+            title: 'Atur Foto Profil',
+            aspectRatioLockEnabled: true,
+            cropStyle: CropStyle.circle,
+          ),
+        ],
+      );
+      if (croppedFile == null) return; // Batal crop
+    }
+
     setState(() => _uploadingPhoto = true);
     try {
-      var bytes = await picked.readAsBytes();
+      var bytes = croppedFile != null
+          ? await croppedFile.readAsBytes()
+          : await picked.readAsBytes();
 
-      // Kompres hanya di native (flutter_image_compress tidak support web)
       if (!kIsWeb) {
         final compressed = await FlutterImageCompress.compressWithList(
           bytes,
@@ -62,6 +88,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
       final supabase = sb.Supabase.instance.client;
       final path = '${user.id}/photo.jpg';
+      final now = DateTime.now().millisecondsSinceEpoch;
 
       await supabase.storage.from('profile-photos').uploadBinary(
             path,
@@ -72,15 +99,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ),
           );
 
-      final url = supabase.storage.from('profile-photos').getPublicUrl(path);
-      final now = DateTime.now().millisecondsSinceEpoch;
+      final baseUrl =
+          supabase.storage.from('profile-photos').getPublicUrl(path);
+      final url = '$baseUrl?v=$now';
 
-      // Update Supabase users table
       await supabase
           .from('users')
           .update({'avatar_url': url, 'updated_at': now}).eq('id', user.id);
 
-      // Update SQLite lokal
       final db = ref.read(appDatabaseProvider);
       await (db.update(db.users)..where((t) => t.id.equals(user.id))).write(
         UsersCompanion(
@@ -89,7 +115,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ),
       );
 
-      ref.invalidate(authProvider);
+      await ref.read(authProvider.notifier).refreshUser();
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Foto profil berhasil diperbarui')),
@@ -157,8 +184,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   // ── Ganti Password ───────────────────────────────────────────────────────
 
   void _showChangePasswordSheet() {
+    final oldPassCtrl = TextEditingController();
     final newPassCtrl = TextEditingController();
     final confirmCtrl = TextEditingController();
+    bool obscureOld = true;
     bool obscureNew = true;
     bool obscureConfirm = true;
     bool loading = false;
@@ -205,12 +234,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ),
                   const SizedBox(height: 4),
                   const Text(
-                    'Password baru minimal 6 karakter.',
+                    'Masukkan password lama lalu buat password baru (min. 6 karakter).',
                     style: TextStyle(fontSize: 13, color: Color(0xFF747780)),
                   ),
                   const SizedBox(height: 20),
 
-                  // Password Baru
+                  _PasswordField(
+                    controller: oldPassCtrl,
+                    label: 'Password Lama',
+                    hint: 'Masukkan password saat ini',
+                    obscure: obscureOld,
+                    onToggle: () =>
+                        setSheetState(() => obscureOld = !obscureOld),
+                  ),
+                  const SizedBox(height: 16),
+                  const Divider(height: 1, color: Color(0xFFE8EAED)),
+                  const SizedBox(height: 16),
+
                   _PasswordField(
                     controller: newPassCtrl,
                     label: 'Password Baru',
@@ -221,10 +261,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Konfirmasi
                   _PasswordField(
                     controller: confirmCtrl,
-                    label: 'Konfirmasi Password',
+                    label: 'Konfirmasi Password Baru',
                     hint: 'Ulangi password baru',
                     obscure: obscureConfirm,
                     onToggle: () =>
@@ -249,25 +288,45 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       onPressed: loading
                           ? null
                           : () async {
+                              final op = oldPassCtrl.text.trim();
                               final np = newPassCtrl.text.trim();
                               final cp = confirmCtrl.text.trim();
+
+                              if (op.isEmpty) {
+                                setSheetState(() =>
+                                    errorMsg = 'Masukkan password lama');
+                                return;
+                              }
                               if (np.length < 6) {
                                 setSheetState(() => errorMsg =
-                                    'Password minimal 6 karakter');
+                                    'Password baru minimal 6 karakter');
                                 return;
                               }
                               if (np != cp) {
-                                setSheetState(() =>
-                                    errorMsg = 'Konfirmasi password tidak cocok');
+                                setSheetState(() => errorMsg =
+                                    'Konfirmasi password tidak cocok');
                                 return;
                               }
-                              setSheetState(
-                                  () => loading = true, );
+
+                              setSheetState(() => loading = true);
                               try {
+                                final user =
+                                    ref.read(authProvider).valueOrNull;
+                                if (user == null) return;
+
+                                final email =
+                                    '${user.nisn}@sman07.local';
+                                await sb.Supabase.instance.client.auth
+                                    .signInWithPassword(
+                                  email: email,
+                                  password: op,
+                                );
+
                                 await sb.Supabase.instance.client.auth
                                     .updateUser(
                                   sb.UserAttributes(password: np),
                                 );
+
                                 if (ctx.mounted) Navigator.pop(ctx);
                                 if (mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
@@ -279,7 +338,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 }
                               } on sb.AuthException catch (e) {
                                 setSheetState(() {
-                                  errorMsg = e.message;
+                                  errorMsg = e.message.contains('Invalid')
+                                      ? 'Password lama salah'
+                                      : e.message;
                                   loading = false;
                                 });
                               } catch (e) {

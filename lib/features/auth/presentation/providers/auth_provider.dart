@@ -26,6 +26,11 @@ class AuthNotifier extends AsyncNotifier<UserEntity?> {
       return null;
     });
   }
+
+  Future<void> refreshUser() async {
+    final updated = await ref.read(authRepositoryProvider).getCurrentUser();
+    if (updated != null) state = AsyncData(updated);
+  }
 }
 
 final authProvider = AsyncNotifierProvider<AuthNotifier, UserEntity?>(

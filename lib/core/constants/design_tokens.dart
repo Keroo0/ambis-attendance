@@ -108,7 +108,7 @@ abstract class DesignTokens {
   // ── Input Decoration ───────────────────────────────────
   static const inputBorder = OutlineInputBorder(
     borderRadius: radius8,
-    borderSide: const BorderSide(color: outline),
+    borderSide: BorderSide(color: outline),
   );
 
   static final inputEnabledBorder = OutlineInputBorder(
@@ -118,16 +118,16 @@ abstract class DesignTokens {
 
   static const inputFocusedBorder = OutlineInputBorder(
     borderRadius: radius8,
-    borderSide: const BorderSide(color: secondary, width: 1.5),
+    borderSide: BorderSide(color: secondary, width: 1.5),
   );
 
   static const inputErrorBorder = OutlineInputBorder(
     borderRadius: radius8,
-    borderSide: const BorderSide(color: error, width: 1.0),
+    borderSide: BorderSide(color: error, width: 1.0),
   );
 
   static const inputErrorFocusedBorder = OutlineInputBorder(
     borderRadius: radius8,
-    borderSide: const BorderSide(color: error, width: 1.5),
+    borderSide: BorderSide(color: error, width: 1.5),
   );
 }
