@@ -4,17 +4,22 @@ import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 class SubjectGrade {
   const SubjectGrade({
     required this.subject,
-    required this.utsScore,
-    required this.uasScore,
-    required this.tugasScore,
+    this.utsScore,
+    this.uasScore,
+    this.tugasScore,
   });
 
   final String subject;
-  final double utsScore;
-  final double uasScore;
-  final double tugasScore;
+  final double? utsScore;
+  final double? uasScore;
+  final double? tugasScore;
 
-  double get average => (utsScore + uasScore + tugasScore) / 3;
+  /// Averages only scores that were actually provided (non-null).
+  double? get average {
+    final vals = [utsScore, uasScore, tugasScore].whereType<double>().toList();
+    if (vals.isEmpty) return null;
+    return vals.reduce((a, b) => a + b) / vals.length;
+  }
 }
 
 class GradeSummary {
@@ -47,22 +52,19 @@ String _predikatFromAvg(double avg) {
 
 class GradeRepository {
   /// Fetches grades from Supabase for [studentId] in [semester] (1 or 2).
-  /// Returns grouped SubjectGrade list + summary. Empty if no data exists yet.
+  /// Returns grouped SubjectGrade list + summary.
+  /// Returns an empty list when no rows exist for that student/semester.
+  /// Throws on network or Supabase errors so callers can surface them.
   Future<(List<SubjectGrade>, GradeSummary)> getGradesFromSupabase(
     String studentId,
     int semester,
   ) async {
     final supabase = sb.Supabase.instance.client;
-    final List<dynamic> rows;
-    try {
-      rows = await supabase
-          .from('grades')
-          .select('subject, type, score')
-          .eq('student_id', studentId)
-          .eq('semester', semester);
-    } catch (_) {
-      return (<SubjectGrade>[], GradeSummary.empty);
-    }
+    final List<dynamic> rows = await supabase
+        .from('grades')
+        .select('subject, type, score')
+        .eq('student_id', studentId)
+        .eq('semester', semester);
 
     if (rows.isEmpty) return (<SubjectGrade>[], GradeSummary.empty);
 
@@ -77,16 +79,19 @@ class GradeRepository {
     final orderedSubjects = bySubject.keys.toList()..sort();
     final grades = orderedSubjects.map((subject) {
       final scores = bySubject[subject]!;
+      final rawTugas = scores['tugas'];
       return SubjectGrade(
         subject: subject,
-        utsScore: scores['UTS'] ?? 0,
-        uasScore: scores['UAS'] ?? 0,
-        tugasScore: scores['tugas'] ?? 0,
+        utsScore: scores['UTS'],
+        uasScore: scores['UAS'],
+        tugasScore: rawTugas,
       );
     }).toList();
 
-    final overallAvg =
-        grades.map((g) => g.average).reduce((a, b) => a + b) / grades.length;
+    final validAvgs = grades.map((g) => g.average).whereType<double>().toList();
+    final overallAvg = validAvgs.isEmpty
+        ? 0.0
+        : validAvgs.reduce((a, b) => a + b) / validAvgs.length;
 
     return (
       grades,

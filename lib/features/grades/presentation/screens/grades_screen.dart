@@ -148,7 +148,7 @@ class _GradesScreenState extends ConsumerState<GradesScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Grades content
+                    // Grades content — always show table
                     async.when(
                       loading: () => const Center(
                         child: Padding(
@@ -163,9 +163,6 @@ class _GradesScreenState extends ConsumerState<GradesScreen> {
                       ),
                       data: (result) {
                         final (grades, _) = result;
-                        if (grades.isEmpty) {
-                          return const _EmptyView();
-                        }
                         return _GradesTableCard(grades: grades);
                       },
                     ),
@@ -420,81 +417,102 @@ class _GradesTableCard extends StatelessWidget {
                     ),
                   ),
                   // Data rows
-                  ...List.generate(grades.length, (i) {
-                    final g = grades[i];
-                    final avg = g.average;
-                    final passed = avg >= 75;
-                    final isAlt = i.isOdd;
-                    final finalColor = !passed
-                        ? Colors.red
-                        : avg >= 88
-                            ? const Color(0xFF006A63)
-                            : const Color(0xFF001736);
-
-                    return Container(
-                      color: isAlt
-                          ? const Color(0xFFF7F9FB)
-                          : Colors.white,
+                  if (grades.isEmpty)
+                    Container(
+                      color: Colors.white,
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 11),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              g.subject,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                color: Color(0xFF001736),
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          SizedBox(
-                            width: 44,
-                            child: Text(
-                              g.utsScore.toStringAsFixed(0),
-                              style: const TextStyle(
-                                  fontSize: 13,
-                                  color: Color(0xFF43474F)),
-                              textAlign: TextAlign.right,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          SizedBox(
-                            width: 44,
-                            child: Text(
-                              g.uasScore.toStringAsFixed(0),
-                              style: const TextStyle(
-                                  fontSize: 13,
-                                  color: Color(0xFF43474F)),
-                              textAlign: TextAlign.right,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          SizedBox(
-                            width: 52,
-                            child: Text(
-                              avg.toStringAsFixed(1),
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: finalColor,
-                              ),
-                              textAlign: TextAlign.right,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          SizedBox(
-                            width: 76,
-                            child: Center(
-                              child: _StatusPill(passed: passed),
-                            ),
-                          ),
-                        ],
+                          horizontal: 14, vertical: 20),
+                      child: const Center(
+                        child: Text(
+                          'Nilai belum diinput.',
+                          style: TextStyle(
+                              fontSize: 13, color: Color(0xFF747780)),
+                        ),
                       ),
-                    );
-                  }),
+                    )
+                  else
+                    ...List.generate(grades.length, (i) {
+                      final g = grades[i];
+                      final avg = g.average;
+                      final passed = avg != null ? avg >= 75 : null;
+                      final isAlt = i.isOdd;
+                      final finalColor = passed == null
+                          ? const Color(0xFF43474F)
+                          : !passed
+                              ? Colors.red
+                              : avg! >= 88
+                                  ? const Color(0xFF006A63)
+                                  : const Color(0xFF001736);
+
+                      return Container(
+                        color: isAlt
+                            ? const Color(0xFFF7F9FB)
+                            : Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 11),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                g.subject,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color: Color(0xFF001736),
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            SizedBox(
+                              width: 44,
+                              child: Text(
+                                g.utsScore?.toStringAsFixed(0) ?? '-',
+                                style: const TextStyle(
+                                    fontSize: 13,
+                                    color: Color(0xFF43474F)),
+                                textAlign: TextAlign.right,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            SizedBox(
+                              width: 44,
+                              child: Text(
+                                g.uasScore?.toStringAsFixed(0) ?? '-',
+                                style: const TextStyle(
+                                    fontSize: 13,
+                                    color: Color(0xFF43474F)),
+                                textAlign: TextAlign.right,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            SizedBox(
+                              width: 52,
+                              child: Text(
+                                avg?.toStringAsFixed(1) ?? '-',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: finalColor,
+                                ),
+                                textAlign: TextAlign.right,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            SizedBox(
+                              width: 76,
+                              child: Center(
+                                child: passed == null
+                                    ? const Text('-',
+                                        style: TextStyle(
+                                            fontSize: 13,
+                                            color: Color(0xFF747780)))
+                                    : _StatusPill(passed: passed),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
                 ],
               ),
             ),
@@ -655,6 +673,7 @@ class _GradesChartState extends State<_GradesChart> {
       ),
       padding: const EdgeInsets.fromLTRB(8, 16, 16, 8),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Padding(
@@ -830,19 +849,3 @@ class _ErrorView extends StatelessWidget {
   }
 }
 
-class _EmptyView extends StatelessWidget {
-  const _EmptyView();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(
-      child: Padding(
-        padding: EdgeInsets.symmetric(vertical: 48),
-        child: Text(
-          'Nilai belum tersedia.',
-          style: TextStyle(color: Color(0xFF747780), fontSize: 14),
-        ),
-      ),
-    );
-  }
-}

@@ -10,6 +10,7 @@ import '../../features/auth/presentation/screens/welcome_screen.dart';
 import '../../features/dashboard/presentation/screens/dashboard_screen.dart';
 import '../../features/enrollment/presentation/screens/enrollment_screen.dart';
 import '../../features/enrollment/presentation/screens/nisn_verification_screen.dart';
+import '../../features/attendance/presentation/screens/attendance_screen.dart';
 import '../../features/grades/presentation/screens/grades_screen.dart';
 import '../../features/history/presentation/screens/history_screen.dart';
 import '../../features/leave_request/presentation/screens/leave_request_screen.dart';
@@ -86,6 +87,10 @@ GoRouter buildRouter(Ref ref) {
       GoRoute(
         path: '/history',
         builder: (_, __) => const HistoryScreen(),
+      ),
+      GoRoute(
+        path: '/attendance',
+        builder: (_, __) => const AttendanceScreen(),
       ),
       GoRoute(
         path: '/parent-dashboard',
