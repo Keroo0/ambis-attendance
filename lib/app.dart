@@ -4,6 +4,7 @@ import 'package:toastification/toastification.dart';
 
 import 'core/constants/app_constants.dart';
 import 'core/router/app_router.dart';
+import 'core/services/notification_service.dart';
 import 'features/attendance/presentation/providers/sync_provider.dart';
 import 'shared/themes/app_theme.dart';
 
@@ -19,8 +20,10 @@ class _AppState extends ConsumerState<App> {
   void initState() {
     super.initState();
     // Wire foreground / auth-change sync triggers as soon as the tree mounts.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       ref.read(syncCoordinatorProvider).start();
+      // Jadwalkan ulang reminder absen setiap buka app
+      await ref.read(notificationServiceProvider).scheduleCheckInReminder();
     });
   }
 

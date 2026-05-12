@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSUserNotificationUsageDescription</key>
+	<string>AMBIS mengirim pengingat agar kamu tidak lupa absen sebelum terlambat.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>AMBIS membutuhkan kamera depan untuk mendaftarkan dan memverifikasi wajah saat absen.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>

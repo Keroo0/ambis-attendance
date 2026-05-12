@@ -57,6 +57,11 @@ dependencies:
   # HTTP
   dio: ^5.4.1
 
+  # Notifications
+  flutter_local_notifications: ^18.0.1
+  timezone: ^0.9.4
+  flutter_timezone: ^5.0.2
+
   # Utils
   uuid: ^4.3.3
   logger: ^2.0.2+1
