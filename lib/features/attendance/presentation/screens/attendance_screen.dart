@@ -66,9 +66,6 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen>
   Timer? _captureTimer;
   Timer? _livenessTimer;
 
-  // ── Scan-line animation ───────────────────────────────────────────
-  late final AnimationController _lineCtrl;
-  late final Animation<double> _lineAnim;
 
   late final mlk.FaceDetector _detector = mlk.FaceDetector(
     options: mlk.FaceDetectorOptions(
@@ -81,11 +78,6 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen>
   @override
   void initState() {
     super.initState();
-    _lineCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 2),
-    )..repeat();
-    _lineAnim = Tween<double>(begin: 0, end: 1).animate(_lineCtrl);
     _initCamera();
     _initLocation();
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadTodayRecord());
@@ -472,7 +464,7 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen>
   void dispose() {
     _captureTimer?.cancel();
     _livenessTimer?.cancel();
-    _lineCtrl.dispose();
+
     _camCtrl?.dispose();
     _detector.close();
     super.dispose();
@@ -563,7 +555,7 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen>
                           controller: _camCtrl,
                           loading: _camLoading,
                           error: _camError,
-                          lineAnim: _lineAnim,
+
                         ),
 
                         const SizedBox(height: 12),
@@ -760,13 +752,11 @@ class _Viewfinder extends StatelessWidget {
     required this.controller,
     required this.loading,
     required this.error,
-    required this.lineAnim,
   });
 
   final CameraController? controller;
   final bool loading;
   final String? error;
-  final Animation<double> lineAnim;
 
   @override
   Widget build(BuildContext context) {
@@ -798,11 +788,13 @@ class _Viewfinder extends StatelessWidget {
               LayoutBuilder(
                 builder: (_, box) {
                   final ctrl = controller!;
-                  final a = ctrl.value.aspectRatio;
+                  final sensorAspect = ctrl.value.aspectRatio;
                   final size = box.maxWidth;
-                  // Cover the 1:1 square without distortion
-                  final w = a >= 1.0 ? size * a : size;
-                  final h = a >= 1.0 ? size : size / a;
+                  // CameraPreview renders in portrait regardless of sensor orientation.
+                  // Invert landscape sensor ratio so the SizedBox matches the displayed portrait content.
+                  final a = sensorAspect >= 1.0 ? 1.0 / sensorAspect : sensorAspect;
+                  final w = size;
+                  final h = size / a;
                   return ClipRect(
                     child: OverflowBox(
                       maxWidth: double.infinity,
@@ -818,36 +810,6 @@ class _Viewfinder extends StatelessWidget {
                 },
               ),
 
-            // Scan line
-            if (!loading && error == null)
-              LayoutBuilder(
-                builder: (_, box) => AnimatedBuilder(
-                  animation: lineAnim,
-                  builder: (_, __) => Stack(
-                    children: [
-                      Positioned(
-                        top: box.maxHeight * lineAnim.value - 20,
-                        left: 0,
-                        right: 0,
-                        height: 40,
-                        child: const DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                Colors.transparent,
-                                Color(0xCC47FBEB),
-                                Colors.transparent,
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
 
             // Corner brackets
             const Positioned.fill(

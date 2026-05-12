@@ -68,13 +68,13 @@ class _GradesScreenState extends ConsumerState<GradesScreen> {
                   children: [
                     // Header row: title + summary bento
                     Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Expanded(
+                        Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
+                              const Text(
                                 'Laporan Nilai',
                                 style: TextStyle(
                                   fontSize: 24,
@@ -82,10 +82,12 @@ class _GradesScreenState extends ConsumerState<GradesScreen> {
                                   color: Color(0xFF001736),
                                 ),
                               ),
-                              SizedBox(height: 2),
+                              const SizedBox(height: 2),
                               Text(
-                                'Tahun Ajaran 2023/2024',
-                                style: TextStyle(
+                                _semester == 1
+                                    ? 'Semester Ganjil · 2023/2024'
+                                    : 'Semester Genap · 2023/2024',
+                                style: const TextStyle(
                                     fontSize: 13, color: Color(0xFF43474F)),
                               ),
                             ],
@@ -142,7 +144,6 @@ class _GradesScreenState extends ConsumerState<GradesScreen> {
                       error: (_, __) => const SizedBox.shrink(),
                       data: (result) {
                         final (grades, _) = result;
-                        if (grades.isEmpty) return const SizedBox.shrink();
                         return _GradesChart(grades: grades);
                       },
                     ),
@@ -370,15 +371,9 @@ class _GradesTableCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
-          // Scrollable table
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                minWidth: MediaQuery.of(context).size.width - 44,
-              ),
-              child: Column(
-                children: [
+          // Table
+          Column(
+            children: [
                   // Header
                   Container(
                     color: const Color(0xFF001736),
@@ -513,9 +508,7 @@ class _GradesTableCard extends StatelessWidget {
                         ),
                       );
                     }),
-                ],
-              ),
-            ),
+            ],
           ),
 
           // Footer
@@ -629,6 +622,31 @@ class _GradesChartState extends State<_GradesChart> {
   @override
   Widget build(BuildContext context) {
     final grades = widget.grades;
+
+    if (grades.isEmpty) {
+      return Container(
+        height: 200,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE0E3E5)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(10),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: const Center(
+          child: Text(
+            'Belum ada data nilai untuk semester ini',
+            style: TextStyle(fontSize: 13, color: Color(0xFF747780)),
+          ),
+        ),
+      );
+    }
+
     final maxY = grades.fold<double>(
       80,
       (m, g) => [m, g.utsScore ?? 0, g.uasScore ?? 0].reduce(
