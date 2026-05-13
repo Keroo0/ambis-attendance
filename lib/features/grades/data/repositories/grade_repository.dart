@@ -1,6 +1,20 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
+/// Canonical subject list — mirrors the web admin input order.
+const kSubjects = [
+  'Matematika',
+  'Bahasa Indonesia',
+  'Bahasa Inggris',
+  'Fisika',
+  'Kimia',
+  'Biologi',
+  'Sejarah Indonesia',
+  'Pendidikan Pancasila',
+  'Pendidikan Agama Islam',
+  'Pendidikan Jasmani',
+];
+
 class SubjectGrade {
   const SubjectGrade({
     required this.subject,
@@ -14,30 +28,39 @@ class SubjectGrade {
   final double? uasScore;
   final double? tugasScore;
 
-  /// Averages only scores that were actually provided (non-null).
+  bool get hasAnyScore => utsScore != null || uasScore != null;
+
+  /// Complete = both UTS and UAS are present.
+  bool get isComplete => utsScore != null && uasScore != null;
+
+  /// null when either UTS or UAS is missing.
   double? get average {
-    final vals = [utsScore, uasScore, tugasScore].whereType<double>().toList();
-    if (vals.isEmpty) return null;
+    if (utsScore == null || uasScore == null) return null;
+    final vals = <double>[utsScore!, uasScore!];
+    if (tugasScore != null) vals.add(tugasScore!);
     return vals.reduce((a, b) => a + b) / vals.length;
   }
 }
 
 class GradeSummary {
   const GradeSummary({
-    required this.overallAverage,
+    this.overallAverage,
     required this.predikat,
+    this.academicYear = '2023/2024',
     this.rank = 5,
     this.totalStudents = 32,
   });
 
-  final double overallAverage;
+  /// null means data is not yet complete — show "–" in the UI.
+  final double? overallAverage;
   final String predikat;
+  final String academicYear;
   final int rank;
   final int totalStudents;
 
   static const GradeSummary empty = GradeSummary(
-    overallAverage: 0,
-    predikat: '-',
+    overallAverage: null,
+    predikat: '–',
   );
 }
 
@@ -50,11 +73,17 @@ String _predikatFromAvg(double avg) {
   return 'D';
 }
 
+String _academicYearFromDataYear(int? dataYear) {
+  final now = DateTime.now();
+  final y = dataYear ?? (now.month >= 7 ? now.year : now.year - 1);
+  return '$y/${y + 1}';
+}
+
 class GradeRepository {
-  /// Fetches grades from Supabase for [studentId] in [semester] (1 or 2).
-  /// Returns grouped SubjectGrade list + summary.
-  /// Returns an empty list when no rows exist for that student/semester.
-  /// Throws on network or Supabase errors so callers can surface them.
+  /// Fetches grades from Supabase for [studentId] in [semester].
+  /// Always returns all [kSubjects]; missing scores are null (displayed as "–").
+  /// [GradeSummary.overallAverage] is null until every subject with at least
+  /// one score entered has both UTS and UAS.
   Future<(List<SubjectGrade>, GradeSummary)> getGradesFromSupabase(
     String studentId,
     int semester,
@@ -62,42 +91,47 @@ class GradeRepository {
     final supabase = sb.Supabase.instance.client;
     final List<dynamic> rows = await supabase
         .from('grades')
-        .select('subject, type, score')
+        .select('subject, type, score, year')
         .eq('student_id', studentId)
         .eq('semester', semester);
 
-    if (rows.isEmpty) return (<SubjectGrade>[], GradeSummary.empty);
-
     final bySubject = <String, Map<String, double>>{};
+    int? dataYear;
     for (final row in rows) {
       final subject = row['subject'] as String;
       final type = row['type'] as String;
       final score = (row['score'] as num).toDouble();
+      dataYear ??= row['year'] as int?;
       bySubject.putIfAbsent(subject, () => {})[type] = score;
     }
 
-    final orderedSubjects = bySubject.keys.toList()..sort();
-    final grades = orderedSubjects.map((subject) {
-      final scores = bySubject[subject]!;
-      final rawTugas = scores['tugas'];
+    // Always build all predefined subjects, nulls for missing scores.
+    final grades = kSubjects.map((subject) {
+      final scores = bySubject[subject];
       return SubjectGrade(
         subject: subject,
-        utsScore: scores['UTS'],
-        uasScore: scores['UAS'],
-        tugasScore: rawTugas,
+        utsScore: scores?['UTS'],
+        uasScore: scores?['UAS'],
+        tugasScore: scores?['tugas'],
       );
     }).toList();
 
-    final validAvgs = grades.map((g) => g.average).whereType<double>().toList();
-    final overallAvg = validAvgs.isEmpty
-        ? 0.0
-        : validAvgs.reduce((a, b) => a + b) / validAvgs.length;
+    // Average only when every subject with any score has both UTS & UAS.
+    final withData = grades.where((g) => g.hasAnyScore).toList();
+    double? overallAvg;
+    String predikat = '–';
+    if (withData.isNotEmpty && withData.every((g) => g.isComplete)) {
+      final avgs = withData.map((g) => g.average!).toList();
+      overallAvg = avgs.reduce((a, b) => a + b) / avgs.length;
+      predikat = _predikatFromAvg(overallAvg);
+    }
 
     return (
       grades,
       GradeSummary(
         overallAverage: overallAvg,
-        predikat: _predikatFromAvg(overallAvg),
+        predikat: predikat,
+        academicYear: _academicYearFromDataYear(dataYear),
       ),
     );
   }

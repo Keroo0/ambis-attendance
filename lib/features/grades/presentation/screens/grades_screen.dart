@@ -1,7 +1,12 @@
-import 'package:fl_chart/fl_chart.dart';
+import 'dart:io';
+
+import 'package:excel/excel.dart' hide Border;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../data/repositories/grade_repository.dart';
 import '../providers/grades_provider.dart';
@@ -15,6 +20,93 @@ class GradesScreen extends ConsumerStatefulWidget {
 
 class _GradesScreenState extends ConsumerState<GradesScreen> {
   int _semester = 1;
+  bool _isExporting = false;
+
+  String get _tahunAjaran {
+    final now = DateTime.now();
+    final y = now.month >= 7 ? now.year : now.year - 1;
+    return '$y/${y + 1}';
+  }
+
+  Future<void> _exportToExcel(
+    List<SubjectGrade> grades,
+    GradeSummary summary,
+  ) async {
+    if (_isExporting) return;
+    setState(() => _isExporting = true);
+    try {
+      final excel = Excel.createExcel();
+      final sheet = excel['Laporan Nilai'];
+      try {
+        excel.delete('Sheet1');
+      } catch (_) {}
+
+      sheet.appendRow([
+        TextCellValue('Laporan Nilai – Semester $_semester'),
+      ]);
+      sheet.appendRow([
+        TextCellValue('Tahun Ajaran ${summary.academicYear}'),
+      ]);
+      sheet.appendRow([TextCellValue('')]);
+      sheet.appendRow([
+        TextCellValue('No'),
+        TextCellValue('Mata Pelajaran'),
+        TextCellValue('UTS'),
+        TextCellValue('UAS'),
+      ]);
+
+      for (int i = 0; i < grades.length; i++) {
+        final g = grades[i];
+        sheet.appendRow([
+          IntCellValue(i + 1),
+          TextCellValue(g.subject),
+          g.utsScore != null
+              ? DoubleCellValue(g.utsScore!)
+              : TextCellValue('–'),
+          g.uasScore != null
+              ? DoubleCellValue(g.uasScore!)
+              : TextCellValue('–'),
+        ]);
+      }
+
+      sheet.appendRow([TextCellValue('')]);
+      final avg = summary.overallAverage;
+      sheet.appendRow([
+        TextCellValue(''),
+        TextCellValue('Rata-rata Semester'),
+        TextCellValue(''),
+        avg != null ? DoubleCellValue(avg) : TextCellValue('–'),
+      ]);
+
+      final bytes = excel.save();
+      if (bytes == null) throw Exception('Gagal membuat file Excel');
+
+      final dir = await getTemporaryDirectory();
+      final fileName =
+          'laporan_nilai_sem${_semester}_${summary.academicYear.replaceAll('/', '-')}.xlsx';
+      final file = File(p.join(dir.path, fileName));
+      await file.writeAsBytes(bytes);
+
+      await Share.shareXFiles(
+        [
+          XFile(
+            file.path,
+            mimeType:
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          ),
+        ],
+        subject: 'Laporan Nilai Semester $_semester – ${summary.academicYear}',
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal mengunduh: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -66,49 +158,33 @@ class _GradesScreenState extends ConsumerState<GradesScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Header row: title + summary bento
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Laporan Nilai',
-                                style: TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFF001736),
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                _semester == 1
-                                    ? 'Semester Ganjil · 2023/2024'
-                                    : 'Semester Genap · 2023/2024',
-                                style: const TextStyle(
-                                    fontSize: 13, color: Color(0xFF43474F)),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        async.when(
-                          loading: () => const SizedBox(
-                            width: 120,
-                            child: LinearProgressIndicator(
-                              color: Color(0xFF006A63),
-                              backgroundColor: Color(0xFFECEEF0),
-                            ),
-                          ),
-                          error: (_, __) => const SizedBox.shrink(),
-                          data: (result) =>
-                              _SummaryBento(summary: result.$2),
-                        ),
-                      ],
+                    // Title
+                    const Text(
+                      'Laporan Nilai',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF001736),
+                      ),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Tahun Ajaran $_tahunAjaran',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF43474F),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Summary card (full width)
+                    async.when(
+                      loading: () =>
+                          const _SummaryCard(summary: GradeSummary.empty),
+                      error: (_, __) => const SizedBox.shrink(),
+                      data: (result) => _SummaryCard(summary: result.$2),
+                    ),
+                    const SizedBox(height: 16),
 
                     // Semester toggle
                     Container(
@@ -116,40 +192,26 @@ class _GradesScreenState extends ConsumerState<GradesScreen> {
                       decoration: BoxDecoration(
                         color: const Color(0xFFF2F4F6),
                         borderRadius: BorderRadius.circular(8),
-                        border:
-                            Border.all(color: const Color(0xFFE0E3E5)),
+                        border: Border.all(color: const Color(0xFFE0E3E5)),
                       ),
                       child: Row(
                         children: [
                           _SemesterTab(
                             label: 'Semester 1',
                             selected: _semester == 1,
-                            onTap: () =>
-                                setState(() => _semester = 1),
+                            onTap: () => setState(() => _semester = 1),
                           ),
                           _SemesterTab(
                             label: 'Semester 2',
                             selected: _semester == 2,
-                            onTap: () =>
-                                setState(() => _semester = 2),
+                            onTap: () => setState(() => _semester = 2),
                           ),
                         ],
                       ),
                     ),
                     const SizedBox(height: 16),
 
-                    // Chart
-                    async.when(
-                      loading: () => const SizedBox.shrink(),
-                      error: (_, __) => const SizedBox.shrink(),
-                      data: (result) {
-                        final (grades, _) = result;
-                        return _GradesChart(grades: grades);
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Grades content — always show table
+                    // Grades table
                     async.when(
                       loading: () => const Center(
                         child: Padding(
@@ -162,10 +224,12 @@ class _GradesScreenState extends ConsumerState<GradesScreen> {
                         onRetry: () =>
                             ref.invalidate(gradesProvider(_semester)),
                       ),
-                      data: (result) {
-                        final (grades, _) = result;
-                        return _GradesTableCard(grades: grades);
-                      },
+                      data: (result) => _GradesTableCard(
+                        grades: result.$1,
+                        isExporting: _isExporting,
+                        onDownload: () =>
+                            _exportToExcel(result.$1, result.$2),
+                      ),
                     ),
                   ],
                 ),
@@ -178,18 +242,20 @@ class _GradesScreenState extends ConsumerState<GradesScreen> {
   }
 }
 
-// ── Summary bento box ──────────────────────────────────────────────────────
+// ── Summary card (full width) ─────────────────────────────────────────────
 
-class _SummaryBento extends StatelessWidget {
-  const _SummaryBento({required this.summary});
+class _SummaryCard extends StatelessWidget {
+  const _SummaryCard({required this.summary});
 
   final GradeSummary summary;
 
   @override
   Widget build(BuildContext context) {
-    final passed = summary.overallAverage >= 75;
+    final avg = summary.overallAverage;
+    final passed = avg != null && avg >= 75;
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -203,37 +269,37 @@ class _SummaryBento extends StatelessWidget {
         ],
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'RATA-RATA',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.8,
-                  color: Color(0xFF43474F),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'RATA-RATA SEMESTER',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.8,
+                    color: Color(0xFF43474F),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                summary.overallAverage.toStringAsFixed(1),
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF001736),
+                const SizedBox(height: 4),
+                Text(
+                  avg != null ? avg.toStringAsFixed(1) : '–',
+                  style: const TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF001736),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           Container(
             width: 1,
-            height: 40,
+            height: 52,
             color: const Color(0xFFE0E3E5),
-            margin: const EdgeInsets.symmetric(horizontal: 12),
+            margin: const EdgeInsets.symmetric(horizontal: 16),
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -248,32 +314,36 @@ class _SummaryBento extends StatelessWidget {
                   color: Color(0xFF43474F),
                 ),
               ),
-              const SizedBox(height: 4),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: passed
-                      ? const Color(0xFF006A63).withAlpha(20)
-                      : Colors.red.withAlpha(20),
-                  borderRadius: BorderRadius.circular(100),
-                  border: Border.all(
+              const SizedBox(height: 6),
+              if (avg == null)
+                const Text(
+                  '–',
+                  style: TextStyle(fontSize: 16, color: Color(0xFF747780)),
+                )
+              else
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
                     color: passed
-                        ? const Color(0xFF006A63).withAlpha(60)
-                        : Colors.red.withAlpha(60),
+                        ? const Color(0xFF006A63).withAlpha(20)
+                        : Colors.red.withAlpha(20),
+                    borderRadius: BorderRadius.circular(100),
+                    border: Border.all(
+                      color: passed
+                          ? const Color(0xFF006A63).withAlpha(60)
+                          : Colors.red.withAlpha(60),
+                    ),
+                  ),
+                  child: Text(
+                    passed ? 'Lulus' : 'Tidak Lulus',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: passed ? const Color(0xFF006A63) : Colors.red,
+                    ),
                   ),
                 ),
-                child: Text(
-                  passed ? 'Lulus' : 'Tidak Lulus',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: passed
-                        ? const Color(0xFF006A63)
-                        : Colors.red,
-                  ),
-                ),
-              ),
             ],
           ),
         ],
@@ -341,9 +411,22 @@ class _SemesterTab extends StatelessWidget {
 // ── Grades table card ──────────────────────────────────────────────────────
 
 class _GradesTableCard extends StatelessWidget {
-  const _GradesTableCard({required this.grades});
+  const _GradesTableCard({
+    required this.grades,
+    required this.isExporting,
+    required this.onDownload,
+  });
 
   final List<SubjectGrade> grades;
+  final bool isExporting;
+  final VoidCallback onDownload;
+
+  static const _headerStyle = TextStyle(
+    fontSize: 11,
+    fontWeight: FontWeight.w600,
+    letterSpacing: 0.6,
+    color: Colors.white,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -353,12 +436,9 @@ class _GradesTableCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border(
           left: const BorderSide(color: Color(0xFF006A63), width: 4),
-          top: BorderSide(
-              color: const Color(0xFFE0E3E5).withAlpha(200)),
-          right: BorderSide(
-              color: const Color(0xFFE0E3E5).withAlpha(200)),
-          bottom: BorderSide(
-              color: const Color(0xFFE0E3E5).withAlpha(200)),
+          top: BorderSide(color: const Color(0xFFE0E3E5).withAlpha(200)),
+          right: BorderSide(color: const Color(0xFFE0E3E5).withAlpha(200)),
+          bottom: BorderSide(color: const Color(0xFFE0E3E5).withAlpha(200)),
         ),
         boxShadow: [
           BoxShadow(
@@ -371,145 +451,74 @@ class _GradesTableCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
-          // Table
-          Column(
-            children: [
-                  // Header
-                  Container(
-                    color: const Color(0xFF001736),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 12),
-                    child: const Row(
-                      children: [
-                        Expanded(
-                          child: Text('MATA PELAJARAN',
-                              style: _headerStyle),
-                        ),
-                        SizedBox(
-                            width: 44,
-                            child: Text('UTS',
-                                style: _headerStyle,
-                                textAlign: TextAlign.right)),
-                        SizedBox(width: 8),
-                        SizedBox(
-                            width: 44,
-                            child: Text('UAS',
-                                style: _headerStyle,
-                                textAlign: TextAlign.right)),
-                        SizedBox(width: 8),
-                        SizedBox(
-                            width: 52,
-                            child: Text('AKHIR',
-                                style: _headerStyle,
-                                textAlign: TextAlign.right)),
-                        SizedBox(width: 8),
-                        SizedBox(
-                            width: 76,
-                            child: Text('STATUS',
-                                style: _headerStyle,
-                                textAlign: TextAlign.center)),
-                      ],
+          // Header row
+          Container(
+            color: const Color(0xFF001736),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: const Row(
+              children: [
+                Expanded(
+                  child: Text('MATA PELAJARAN', style: _headerStyle),
+                ),
+                SizedBox(
+                  width: 44,
+                  child: Text('UTS',
+                      style: _headerStyle, textAlign: TextAlign.right),
+                ),
+                SizedBox(width: 12),
+                SizedBox(
+                  width: 44,
+                  child: Text('UAS',
+                      style: _headerStyle, textAlign: TextAlign.right),
+                ),
+              ],
+            ),
+          ),
+
+          // Data rows
+          ...List.generate(grades.length, (i) {
+            final g = grades[i];
+            final isAlt = i.isOdd;
+            return Container(
+              color: isAlt ? const Color(0xFFF7F9FB) : Colors.white,
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 14, vertical: 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      g.subject,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF001736),
+                      ),
                     ),
                   ),
-                  // Data rows
-                  if (grades.isEmpty)
-                    Container(
-                      color: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 20),
-                      child: const Center(
-                        child: Text(
-                          'Nilai belum diinput.',
-                          style: TextStyle(
-                              fontSize: 13, color: Color(0xFF747780)),
-                        ),
-                      ),
-                    )
-                  else
-                    ...List.generate(grades.length, (i) {
-                      final g = grades[i];
-                      final avg = g.average;
-                      final passed = avg != null ? avg >= 75 : null;
-                      final isAlt = i.isOdd;
-                      final finalColor = passed == null
-                          ? const Color(0xFF43474F)
-                          : !passed
-                              ? Colors.red
-                              : avg! >= 88
-                                  ? const Color(0xFF006A63)
-                                  : const Color(0xFF001736);
-
-                      return Container(
-                        color: isAlt
-                            ? const Color(0xFFF7F9FB)
-                            : Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 11),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                g.subject,
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                  color: Color(0xFF001736),
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            SizedBox(
-                              width: 44,
-                              child: Text(
-                                g.utsScore?.toStringAsFixed(0) ?? '-',
-                                style: const TextStyle(
-                                    fontSize: 13,
-                                    color: Color(0xFF43474F)),
-                                textAlign: TextAlign.right,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            SizedBox(
-                              width: 44,
-                              child: Text(
-                                g.uasScore?.toStringAsFixed(0) ?? '-',
-                                style: const TextStyle(
-                                    fontSize: 13,
-                                    color: Color(0xFF43474F)),
-                                textAlign: TextAlign.right,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            SizedBox(
-                              width: 52,
-                              child: Text(
-                                avg?.toStringAsFixed(1) ?? '-',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: finalColor,
-                                ),
-                                textAlign: TextAlign.right,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            SizedBox(
-                              width: 76,
-                              child: Center(
-                                child: passed == null
-                                    ? const Text('-',
-                                        style: TextStyle(
-                                            fontSize: 13,
-                                            color: Color(0xFF747780)))
-                                    : _StatusPill(passed: passed),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }),
-            ],
-          ),
+                  SizedBox(
+                    width: 44,
+                    child: Text(
+                      g.utsScore?.toStringAsFixed(0) ?? '–',
+                      style: const TextStyle(
+                          fontSize: 13, color: Color(0xFF43474F)),
+                      textAlign: TextAlign.right,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  SizedBox(
+                    width: 44,
+                    child: Text(
+                      g.uasScore?.toStringAsFixed(0) ?? '–',
+                      style: const TextStyle(
+                          fontSize: 13, color: Color(0xFF43474F)),
+                      textAlign: TextAlign.right,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
 
           // Footer
           Container(
@@ -517,8 +526,7 @@ class _GradesTableCard extends StatelessWidget {
                 horizontal: 14, vertical: 12),
             decoration: const BoxDecoration(
               color: Color(0xFFF2F4F6),
-              border: Border(
-                  top: BorderSide(color: Color(0xFFE0E3E5))),
+              border: Border(top: BorderSide(color: Color(0xFFE0E3E5))),
             ),
             child: Row(
               children: [
@@ -528,28 +536,34 @@ class _GradesTableCard extends StatelessWidget {
                 const Expanded(
                   child: Text(
                     'Nilai minimum kelulusan: 75',
-                    style: TextStyle(
-                        fontSize: 12, color: Color(0xFF43474F)),
+                    style:
+                        TextStyle(fontSize: 12, color: Color(0xFF43474F)),
                   ),
                 ),
                 const SizedBox(width: 8),
                 OutlinedButton.icon(
-                  onPressed: () {},
-                  icon: const Icon(Icons.download_outlined,
-                      size: 15),
-                  label: const Text('Unduh Transkrip'),
+                  onPressed: isExporting ? null : onDownload,
+                  icon: isExporting
+                      ? const SizedBox(
+                          width: 13,
+                          height: 13,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 1.5,
+                            color: Color(0xFF006A63),
+                          ),
+                        )
+                      : const Icon(Icons.download_outlined, size: 15),
+                  label: Text(
+                      isExporting ? 'Mengunduh...' : 'Unduh Transkrip'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: const Color(0xFF006A63),
-                    side: const BorderSide(
-                        color: Color(0xFF006A63)),
+                    side: const BorderSide(color: Color(0xFF006A63)),
                     padding: const EdgeInsets.symmetric(
                         horizontal: 10, vertical: 6),
                     minimumSize: Size.zero,
-                    tapTargetSize:
-                        MaterialTapTargetSize.shrinkWrap,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     textStyle: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600),
+                        fontSize: 11, fontWeight: FontWeight.w600),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(6)),
                   ),
@@ -561,278 +575,9 @@ class _GradesTableCard extends StatelessWidget {
       ),
     );
   }
-
-  static const _headerStyle = TextStyle(
-    fontSize: 11,
-    fontWeight: FontWeight.w600,
-    letterSpacing: 0.6,
-    color: Colors.white,
-  );
 }
 
-class _StatusPill extends StatelessWidget {
-  const _StatusPill({required this.passed});
-
-  final bool passed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding:
-          const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: passed
-            ? const Color(0xFF006A63).withAlpha(20)
-            : Colors.red.withAlpha(20),
-        borderRadius: BorderRadius.circular(100),
-        border: Border.all(
-          color: passed
-              ? const Color(0xFF006A63).withAlpha(60)
-              : Colors.red.withAlpha(60),
-        ),
-      ),
-      child: Text(
-        passed ? 'Lulus' : 'Remedial',
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          color: passed ? const Color(0xFF006A63) : Colors.red,
-        ),
-      ),
-    );
-  }
-}
-
-// ── Grades bar chart ───────────────────────────────────────────────────────
-
-class _GradesChart extends StatefulWidget {
-  const _GradesChart({required this.grades});
-  final List<SubjectGrade> grades;
-
-  @override
-  State<_GradesChart> createState() => _GradesChartState();
-}
-
-class _GradesChartState extends State<_GradesChart> {
-  int? _touchedIndex;
-
-  static const _colorUTS = Color(0xFF006A63);
-  static const _colorUAS = Color(0xFF405F91);
-
-  @override
-  Widget build(BuildContext context) {
-    final grades = widget.grades;
-
-    if (grades.isEmpty) {
-      return Container(
-        height: 200,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE0E3E5)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withAlpha(10),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: const Center(
-          child: Text(
-            'Belum ada data nilai untuk semester ini',
-            style: TextStyle(fontSize: 13, color: Color(0xFF747780)),
-          ),
-        ),
-      );
-    }
-
-    final maxY = grades.fold<double>(
-      80,
-      (m, g) => [m, g.utsScore ?? 0, g.uasScore ?? 0].reduce(
-        (a, b) => a > b ? a : b,
-      ),
-    );
-    final barGroups = List.generate(grades.length, (i) {
-      final g = grades[i];
-      final touched = _touchedIndex == i;
-      return BarChartGroupData(
-        x: i,
-        barRods: [
-          BarChartRodData(
-            toY: g.utsScore ?? 0,
-            color: _colorUTS.withAlpha(touched ? 255 : 200),
-            width: 8,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
-          ),
-          BarChartRodData(
-            toY: g.uasScore ?? 0,
-            color: _colorUAS.withAlpha(touched ? 255 : 200),
-            width: 8,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
-          ),
-        ],
-        showingTooltipIndicators: touched ? [0, 1] : [],
-      );
-    });
-
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE0E3E5)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(10),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.fromLTRB(8, 16, 16, 8),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.only(left: 8, bottom: 8),
-            child: Row(
-              children: [
-                _Legend(color: _colorUTS, label: 'UTS'),
-                SizedBox(width: 16),
-                _Legend(color: _colorUAS, label: 'UAS'),
-              ],
-            ),
-          ),
-          SizedBox(
-            height: 160,
-            child: BarChart(
-              BarChartData(
-                maxY: (maxY + 10).clamp(0, 105),
-                minY: 0,
-                barGroups: barGroups,
-                barTouchData: BarTouchData(
-                  touchTooltipData: BarTouchTooltipData(
-                    tooltipBgColor: const Color(0xFF191C1E),
-                    tooltipPadding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 4),
-                    getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                      final label = rodIndex == 0 ? 'UTS' : 'UAS';
-                      return BarTooltipItem(
-                        '$label\n${rod.toY.toStringAsFixed(0)}',
-                        const TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600),
-                      );
-                    },
-                  ),
-                  touchCallback: (event, response) {
-                    if (!event.isInterestedForInteractions ||
-                        response == null ||
-                        response.spot == null) {
-                      if (_touchedIndex != null) {
-                        setState(() => _touchedIndex = null);
-                      }
-                      return;
-                    }
-                    final idx = response.spot!.touchedBarGroupIndex;
-                    if (_touchedIndex != idx) {
-                      setState(() => _touchedIndex = idx);
-                    }
-                  },
-                ),
-                gridData: FlGridData(
-                  show: true,
-                  drawVerticalLine: false,
-                  horizontalInterval: 25,
-                  getDrawingHorizontalLine: (v) => const FlLine(
-                    color: Color(0xFFE0E3E5),
-                    strokeWidth: 1,
-                  ),
-                ),
-                borderData: FlBorderData(show: false),
-                titlesData: FlTitlesData(
-                  topTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false)),
-                  rightTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false)),
-                  leftTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 32,
-                      interval: 25,
-                      getTitlesWidget: (v, _) => Text(
-                        v.toInt().toString(),
-                        style: const TextStyle(
-                            fontSize: 10, color: Color(0xFF747780)),
-                      ),
-                    ),
-                  ),
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 28,
-                      getTitlesWidget: (v, _) {
-                        final i = v.toInt();
-                        if (i < 0 || i >= grades.length) {
-                          return const SizedBox.shrink();
-                        }
-                        final words = grades[i].subject.split(' ');
-                        final abbr = words.length > 1
-                            ? words.map((w) => w[0]).join()
-                            : grades[i].subject.substring(
-                                0,
-                                grades[i].subject.length.clamp(0, 5),
-                              );
-                        return Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: Text(
-                            abbr,
-                            style: const TextStyle(
-                                fontSize: 10, color: Color(0xFF43474F)),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Legend extends StatelessWidget {
-  const _Legend({required this.color, required this.label});
-  final Color color;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 10,
-          height: 10,
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
-        const SizedBox(width: 4),
-        Text(label,
-            style: const TextStyle(fontSize: 11, color: Color(0xFF43474F))),
-      ],
-    );
-  }
-}
-
-// ── State widgets ──────────────────────────────────────────────────────────
+// ── Error view ─────────────────────────────────────────────────────────────
 
 class _ErrorView extends StatelessWidget {
   const _ErrorView({required this.message, required this.onRetry});
@@ -866,4 +611,3 @@ class _ErrorView extends StatelessWidget {
     );
   }
 }
-
