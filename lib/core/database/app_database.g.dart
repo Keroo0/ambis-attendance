@@ -653,6 +653,12 @@ class $StudentsTable extends Students
   late final GeneratedColumn<String> phoneParent = GeneratedColumn<String>(
       'phone_parent', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _homeroomTeacherMeta =
+      const VerificationMeta('homeroomTeacher');
+  @override
+  late final GeneratedColumn<String> homeroomTeacher = GeneratedColumn<String>(
+      'homeroom_teacher', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   static const VerificationMeta _createdAtMeta =
       const VerificationMeta('createdAt');
   @override
@@ -675,6 +681,7 @@ class $StudentsTable extends Students
         gender,
         address,
         phoneParent,
+        homeroomTeacher,
         createdAt,
         updatedAt
       ];
@@ -729,6 +736,12 @@ class $StudentsTable extends Students
           phoneParent.isAcceptableOrUnknown(
               data['phone_parent']!, _phoneParentMeta));
     }
+    if (data.containsKey('homeroom_teacher')) {
+      context.handle(
+          _homeroomTeacherMeta,
+          homeroomTeacher.isAcceptableOrUnknown(
+              data['homeroom_teacher']!, _homeroomTeacherMeta));
+    }
     if (data.containsKey('created_at')) {
       context.handle(_createdAtMeta,
           createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
@@ -766,6 +779,8 @@ class $StudentsTable extends Students
           .read(DriftSqlType.string, data['${effectivePrefix}address']),
       phoneParent: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}phone_parent']),
+      homeroomTeacher: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}homeroom_teacher']),
       createdAt: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}created_at'])!,
       updatedAt: attachedDatabase.typeMapping
@@ -788,6 +803,7 @@ class StudentEntity extends DataClass implements Insertable<StudentEntity> {
   final String? gender;
   final String? address;
   final String? phoneParent;
+  final String? homeroomTeacher;
   final int createdAt;
   final int updatedAt;
   const StudentEntity(
@@ -799,6 +815,7 @@ class StudentEntity extends DataClass implements Insertable<StudentEntity> {
       this.gender,
       this.address,
       this.phoneParent,
+      this.homeroomTeacher,
       required this.createdAt,
       required this.updatedAt});
   @override
@@ -821,6 +838,9 @@ class StudentEntity extends DataClass implements Insertable<StudentEntity> {
     }
     if (!nullToAbsent || phoneParent != null) {
       map['phone_parent'] = Variable<String>(phoneParent);
+    }
+    if (!nullToAbsent || homeroomTeacher != null) {
+      map['homeroom_teacher'] = Variable<String>(homeroomTeacher);
     }
     map['created_at'] = Variable<int>(createdAt);
     map['updated_at'] = Variable<int>(updatedAt);
@@ -846,6 +866,9 @@ class StudentEntity extends DataClass implements Insertable<StudentEntity> {
       phoneParent: phoneParent == null && nullToAbsent
           ? const Value.absent()
           : Value(phoneParent),
+      homeroomTeacher: homeroomTeacher == null && nullToAbsent
+          ? const Value.absent()
+          : Value(homeroomTeacher),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
     );
@@ -863,6 +886,7 @@ class StudentEntity extends DataClass implements Insertable<StudentEntity> {
       gender: serializer.fromJson<String?>(json['gender']),
       address: serializer.fromJson<String?>(json['address']),
       phoneParent: serializer.fromJson<String?>(json['phoneParent']),
+      homeroomTeacher: serializer.fromJson<String?>(json['homeroomTeacher']),
       createdAt: serializer.fromJson<int>(json['createdAt']),
       updatedAt: serializer.fromJson<int>(json['updatedAt']),
     );
@@ -879,6 +903,7 @@ class StudentEntity extends DataClass implements Insertable<StudentEntity> {
       'gender': serializer.toJson<String?>(gender),
       'address': serializer.toJson<String?>(address),
       'phoneParent': serializer.toJson<String?>(phoneParent),
+      'homeroomTeacher': serializer.toJson<String?>(homeroomTeacher),
       'createdAt': serializer.toJson<int>(createdAt),
       'updatedAt': serializer.toJson<int>(updatedAt),
     };
@@ -893,6 +918,7 @@ class StudentEntity extends DataClass implements Insertable<StudentEntity> {
           Value<String?> gender = const Value.absent(),
           Value<String?> address = const Value.absent(),
           Value<String?> phoneParent = const Value.absent(),
+          Value<String?> homeroomTeacher = const Value.absent(),
           int? createdAt,
           int? updatedAt}) =>
       StudentEntity(
@@ -904,6 +930,9 @@ class StudentEntity extends DataClass implements Insertable<StudentEntity> {
         gender: gender.present ? gender.value : this.gender,
         address: address.present ? address.value : this.address,
         phoneParent: phoneParent.present ? phoneParent.value : this.phoneParent,
+        homeroomTeacher: homeroomTeacher.present
+            ? homeroomTeacher.value
+            : this.homeroomTeacher,
         createdAt: createdAt ?? this.createdAt,
         updatedAt: updatedAt ?? this.updatedAt,
       );
@@ -919,6 +948,9 @@ class StudentEntity extends DataClass implements Insertable<StudentEntity> {
       address: data.address.present ? data.address.value : this.address,
       phoneParent:
           data.phoneParent.present ? data.phoneParent.value : this.phoneParent,
+      homeroomTeacher: data.homeroomTeacher.present
+          ? data.homeroomTeacher.value
+          : this.homeroomTeacher,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
@@ -935,6 +967,7 @@ class StudentEntity extends DataClass implements Insertable<StudentEntity> {
           ..write('gender: $gender, ')
           ..write('address: $address, ')
           ..write('phoneParent: $phoneParent, ')
+          ..write('homeroomTeacher: $homeroomTeacher, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -943,7 +976,7 @@ class StudentEntity extends DataClass implements Insertable<StudentEntity> {
 
   @override
   int get hashCode => Object.hash(id, nisn, className, parentId, dateOfBirth,
-      gender, address, phoneParent, createdAt, updatedAt);
+      gender, address, phoneParent, homeroomTeacher, createdAt, updatedAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -956,6 +989,7 @@ class StudentEntity extends DataClass implements Insertable<StudentEntity> {
           other.gender == this.gender &&
           other.address == this.address &&
           other.phoneParent == this.phoneParent &&
+          other.homeroomTeacher == this.homeroomTeacher &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt);
 }
@@ -969,6 +1003,7 @@ class StudentsCompanion extends UpdateCompanion<StudentEntity> {
   final Value<String?> gender;
   final Value<String?> address;
   final Value<String?> phoneParent;
+  final Value<String?> homeroomTeacher;
   final Value<int> createdAt;
   final Value<int> updatedAt;
   final Value<int> rowid;
@@ -981,6 +1016,7 @@ class StudentsCompanion extends UpdateCompanion<StudentEntity> {
     this.gender = const Value.absent(),
     this.address = const Value.absent(),
     this.phoneParent = const Value.absent(),
+    this.homeroomTeacher = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -994,6 +1030,7 @@ class StudentsCompanion extends UpdateCompanion<StudentEntity> {
     this.gender = const Value.absent(),
     this.address = const Value.absent(),
     this.phoneParent = const Value.absent(),
+    this.homeroomTeacher = const Value.absent(),
     required int createdAt,
     required int updatedAt,
     this.rowid = const Value.absent(),
@@ -1011,6 +1048,7 @@ class StudentsCompanion extends UpdateCompanion<StudentEntity> {
     Expression<String>? gender,
     Expression<String>? address,
     Expression<String>? phoneParent,
+    Expression<String>? homeroomTeacher,
     Expression<int>? createdAt,
     Expression<int>? updatedAt,
     Expression<int>? rowid,
@@ -1024,6 +1062,7 @@ class StudentsCompanion extends UpdateCompanion<StudentEntity> {
       if (gender != null) 'gender': gender,
       if (address != null) 'address': address,
       if (phoneParent != null) 'phone_parent': phoneParent,
+      if (homeroomTeacher != null) 'homeroom_teacher': homeroomTeacher,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
@@ -1039,6 +1078,7 @@ class StudentsCompanion extends UpdateCompanion<StudentEntity> {
       Value<String?>? gender,
       Value<String?>? address,
       Value<String?>? phoneParent,
+      Value<String?>? homeroomTeacher,
       Value<int>? createdAt,
       Value<int>? updatedAt,
       Value<int>? rowid}) {
@@ -1051,6 +1091,7 @@ class StudentsCompanion extends UpdateCompanion<StudentEntity> {
       gender: gender ?? this.gender,
       address: address ?? this.address,
       phoneParent: phoneParent ?? this.phoneParent,
+      homeroomTeacher: homeroomTeacher ?? this.homeroomTeacher,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
@@ -1084,6 +1125,9 @@ class StudentsCompanion extends UpdateCompanion<StudentEntity> {
     if (phoneParent.present) {
       map['phone_parent'] = Variable<String>(phoneParent.value);
     }
+    if (homeroomTeacher.present) {
+      map['homeroom_teacher'] = Variable<String>(homeroomTeacher.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<int>(createdAt.value);
     }
@@ -1107,6 +1151,7 @@ class StudentsCompanion extends UpdateCompanion<StudentEntity> {
           ..write('gender: $gender, ')
           ..write('address: $address, ')
           ..write('phoneParent: $phoneParent, ')
+          ..write('homeroomTeacher: $homeroomTeacher, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
@@ -5473,6 +5518,7 @@ typedef $$StudentsTableCreateCompanionBuilder = StudentsCompanion Function({
   Value<String?> gender,
   Value<String?> address,
   Value<String?> phoneParent,
+  Value<String?> homeroomTeacher,
   required int createdAt,
   required int updatedAt,
   Value<int> rowid,
@@ -5486,6 +5532,7 @@ typedef $$StudentsTableUpdateCompanionBuilder = StudentsCompanion Function({
   Value<String?> gender,
   Value<String?> address,
   Value<String?> phoneParent,
+  Value<String?> homeroomTeacher,
   Value<int> createdAt,
   Value<int> updatedAt,
   Value<int> rowid,
@@ -5548,6 +5595,10 @@ class $$StudentsTableFilterComposer
 
   ColumnFilters<String> get phoneParent => $composableBuilder(
       column: $table.phoneParent, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get homeroomTeacher => $composableBuilder(
+      column: $table.homeroomTeacher,
+      builder: (column) => ColumnFilters(column));
 
   ColumnFilters<int> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnFilters(column));
@@ -5623,6 +5674,10 @@ class $$StudentsTableOrderingComposer
   ColumnOrderings<String> get phoneParent => $composableBuilder(
       column: $table.phoneParent, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get homeroomTeacher => $composableBuilder(
+      column: $table.homeroomTeacher,
+      builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<int> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnOrderings(column));
 
@@ -5696,6 +5751,9 @@ class $$StudentsTableAnnotationComposer
 
   GeneratedColumn<String> get phoneParent => $composableBuilder(
       column: $table.phoneParent, builder: (column) => column);
+
+  GeneratedColumn<String> get homeroomTeacher => $composableBuilder(
+      column: $table.homeroomTeacher, builder: (column) => column);
 
   GeneratedColumn<int> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -5775,6 +5833,7 @@ class $$StudentsTableTableManager extends RootTableManager<
             Value<String?> gender = const Value.absent(),
             Value<String?> address = const Value.absent(),
             Value<String?> phoneParent = const Value.absent(),
+            Value<String?> homeroomTeacher = const Value.absent(),
             Value<int> createdAt = const Value.absent(),
             Value<int> updatedAt = const Value.absent(),
             Value<int> rowid = const Value.absent(),
@@ -5788,6 +5847,7 @@ class $$StudentsTableTableManager extends RootTableManager<
             gender: gender,
             address: address,
             phoneParent: phoneParent,
+            homeroomTeacher: homeroomTeacher,
             createdAt: createdAt,
             updatedAt: updatedAt,
             rowid: rowid,
@@ -5801,6 +5861,7 @@ class $$StudentsTableTableManager extends RootTableManager<
             Value<String?> gender = const Value.absent(),
             Value<String?> address = const Value.absent(),
             Value<String?> phoneParent = const Value.absent(),
+            Value<String?> homeroomTeacher = const Value.absent(),
             required int createdAt,
             required int updatedAt,
             Value<int> rowid = const Value.absent(),
@@ -5814,6 +5875,7 @@ class $$StudentsTableTableManager extends RootTableManager<
             gender: gender,
             address: address,
             phoneParent: phoneParent,
+            homeroomTeacher: homeroomTeacher,
             createdAt: createdAt,
             updatedAt: updatedAt,
             rowid: rowid,

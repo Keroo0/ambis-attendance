@@ -15,6 +15,7 @@ class Students extends Table {
       text().nullable().check(gender.isIn(const ['M', 'F']))();
   TextColumn get address => text().nullable()();
   TextColumn get phoneParent => text().nullable()();
+  TextColumn get homeroomTeacher => text().nullable()();
   IntColumn get createdAt => integer()();
   IntColumn get updatedAt => integer()();
 

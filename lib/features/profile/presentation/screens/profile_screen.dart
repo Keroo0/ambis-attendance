@@ -11,6 +11,18 @@ import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 import '../../../../core/constants/colors.dart';
 import '../../../../core/database/app_database.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../grades/data/repositories/grade_repository.dart';
+
+final _profileGradeSummaryProvider =
+    FutureProvider.autoDispose<GradeSummary?>((ref) async {
+  final user = ref.watch(authProvider).valueOrNull;
+  if (user == null) return null;
+  final repo = ref.read(gradeRepositoryProvider);
+  final now = DateTime.now();
+  final semester = now.month >= 7 ? 1 : 2;
+  final result = await repo.getGradesFromSupabase(user.id, semester);
+  return result.$2;
+});
 
 final _waliKelasProvider = FutureProvider.autoDispose<String?>((ref) async {
   final user = ref.watch(authProvider).valueOrNull;
@@ -439,6 +451,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final user = ref.watch(authProvider).valueOrNull;
     final studentAsync = ref.watch(_profileStudentProvider);
     final waliKelas = ref.watch(_waliKelasProvider).valueOrNull;
+    final gradeSummary = ref.watch(_profileGradeSummaryProvider).valueOrNull;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F9FB),
@@ -463,6 +476,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     isActive: user?.isActive ?? false,
                     waliKelas: waliKelas,
                     semesterLabel: _semesterLabel(),
+                    rataRata: gradeSummary?.overallAverage,
+                    isLulus: gradeSummary?.overallAverage != null
+                        ? (gradeSummary!.overallAverage! >= 75)
+                        : null,
                   ),
                   const SizedBox(height: 20),
                   const _SectionLabel(text: 'Pengaturan Akun'),
@@ -871,11 +888,15 @@ class _DataAkademikSection extends StatelessWidget {
     required this.isActive,
     required this.waliKelas,
     required this.semesterLabel,
+    this.rataRata,
+    this.isLulus,
   });
 
   final bool isActive;
   final String? waliKelas;
   final String semesterLabel;
+  final double? rataRata;
+  final bool? isLulus;
 
   @override
   Widget build(BuildContext context) {
@@ -940,6 +961,65 @@ class _DataAkademikSection extends StatelessWidget {
                     ),
                   ],
                 ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: _AkademikCard(
+                label: 'RATA-RATA NILAI',
+                icon: Icons.bar_chart_rounded,
+                child: Text(
+                  rataRata != null ? rataRata!.toStringAsFixed(1) : '–',
+                  style: const TextStyle(
+                    color: Color(0xFF001736),
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _AkademikCard(
+                label: 'KETERANGAN',
+                icon: null,
+                child: isLulus == null
+                    ? const Text(
+                        '–',
+                        style: TextStyle(
+                          color: Color(0xFF747780),
+                          fontSize: 14,
+                        ),
+                      )
+                    : Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: isLulus!
+                              ? const Color(0xFF006A63).withAlpha(20)
+                              : Colors.red.withAlpha(20),
+                          borderRadius: BorderRadius.circular(100),
+                          border: Border.all(
+                            color: isLulus!
+                                ? const Color(0xFF006A63).withAlpha(60)
+                                : Colors.red.withAlpha(60),
+                          ),
+                        ),
+                        child: Text(
+                          isLulus! ? 'Lulus' : 'Tidak Lulus',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: isLulus!
+                                ? const Color(0xFF006A63)
+                                : Colors.red,
+                          ),
+                        ),
+                      ),
               ),
             ),
           ],
