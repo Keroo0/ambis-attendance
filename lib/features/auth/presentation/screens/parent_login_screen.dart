@@ -31,7 +31,7 @@ class _ParentLoginScreenState extends ConsumerState<ParentLoginScreen> {
     if (!_formKey.currentState!.validate()) return;
     FocusScope.of(context).unfocus();
 
-    await ref.read(authProvider.notifier).login(
+    await ref.read(authProvider.notifier).loginParent(
           _nisnCtrl.text.trim(),
           _pinCtrl.text,
         );

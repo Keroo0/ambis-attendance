@@ -28,6 +28,10 @@ class AppConstants {
   /// Supabase Auth without adding a hashing dependency on-device.
   static const String authEmailDomain = 'sman07.local';
 
+  /// Suffix used to map a child's NISN onto a parent Supabase Auth email.
+  /// Parent accounts use the child's NISN: {NISN_ANAK}@ortu.sman07.local
+  static const String authParentEmailDomain = 'ortu.sman07.local';
+
   /// Time-window defaults (overridable via `settings` table).
   static const String defaultTimeInStart = '06:00';
   static const String defaultTimeInEnd = '07:30';

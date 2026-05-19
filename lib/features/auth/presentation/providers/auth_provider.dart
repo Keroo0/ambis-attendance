@@ -20,6 +20,14 @@ class AuthNotifier extends AsyncNotifier<UserEntity?> {
     });
   }
 
+  Future<void> loginParent(String nisnAnak, String password) async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(authRepositoryProvider);
+      return repo.loginParent(nisnAnak: nisnAnak, password: password);
+    });
+  }
+
   Future<void> logout() async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {

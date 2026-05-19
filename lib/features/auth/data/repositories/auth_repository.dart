@@ -14,6 +14,10 @@ export '../models/user_entity.dart';
 String nisnToEmail(String nisn) =>
     '${nisn.trim()}@${AppConstants.authEmailDomain}';
 
+/// Maps a child's NISN to the parent's Supabase Auth email.
+String nisnToParentEmail(String nisnAnak) =>
+    '${nisnAnak.trim()}@${AppConstants.authParentEmailDomain}';
+
 class AuthRepository {
   AuthRepository({
     required this.supabase,
@@ -61,6 +65,77 @@ class AuthRepository {
 
     if ((profile['is_active'] as bool? ?? true) == false) {
       throw const AuthException('Akun dinonaktifkan. Hubungi admin.');
+    }
+
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final entity = UserEntity(
+      id: profile['id'] as String,
+      nisn: profile['nisn'] as String,
+      passwordHash: '',
+      role: profile['role'] as String,
+      fullname: profile['fullname'] as String,
+      email: profile['email'] as String?,
+      phone: profile['phone'] as String?,
+      avatarUrl: profile['avatar_url'] as String?,
+      isActive: profile['is_active'] as bool? ?? true,
+      createdAt: now,
+      updatedAt: now,
+      syncedAt: now,
+    );
+
+    await storage.saveSession(
+      accessToken: session.accessToken,
+      refreshToken: session.refreshToken ?? '',
+      userId: entity.id,
+      role: entity.role,
+    );
+
+    return entity;
+  }
+
+  /// Login for parent accounts using the child's NISN and the parent's password.
+  Future<UserEntity> loginParent({
+    required String nisnAnak,
+    required String password,
+  }) async {
+    final email = nisnToParentEmail(nisnAnak);
+
+    final sb.AuthResponse res;
+    try {
+      res = await supabase.auth.signInWithPassword(
+        email: email,
+        password: password,
+      );
+    } on sb.AuthException catch (e) {
+      throw AuthException(e.message);
+    }
+
+    final session = res.session;
+    final user = res.user;
+    if (session == null || user == null) {
+      throw const AuthException('NISN siswa atau password salah.');
+    }
+
+    final Map<String, dynamic> profile;
+    try {
+      profile = await supabase
+          .from('users')
+          .select(
+            'id, nisn, role, fullname, email, phone, avatar_url, is_active',
+          )
+          .eq('id', user.id)
+          .single();
+    } on sb.PostgrestException catch (e) {
+      throw AuthException('Gagal memuat profil: ${e.message}');
+    }
+
+    if ((profile['is_active'] as bool? ?? true) == false) {
+      throw const AuthException('Akun dinonaktifkan. Hubungi admin.');
+    }
+
+    if ((profile['role'] as String?) != 'ortu') {
+      await supabase.auth.signOut();
+      throw const AuthException('Akun ini bukan akun orang tua.');
     }
 
     final now = DateTime.now().millisecondsSinceEpoch;

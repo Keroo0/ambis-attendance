@@ -11,7 +11,7 @@ final childInfoProvider =
   return ref.read(parentRepositoryProvider).getChildInfo(user.id);
 });
 
-/// Fetch top UTS grades for the child.
+/// Fetch grades for the child, pivoted by subject (UTS + UAS per row).
 final childGradesSummaryProvider =
     FutureProvider.autoDispose<List<ChildGradeRow>>((ref) async {
   final child = ref.watch(childInfoProvider).valueOrNull;
@@ -40,6 +40,26 @@ final childAttendanceThisMonthProvider =
   return ref
       .read(parentRepositoryProvider)
       .getChildAttendanceCountThisMonth(child.studentId, now.year, now.month);
+});
+
+/// Today's check-in / check-out status for the child.
+final childTodayAttendanceProvider =
+    FutureProvider.autoDispose<ChildTodayAttendance>((ref) async {
+  final child = ref.watch(childInfoProvider).valueOrNull;
+  if (child == null) return const ChildTodayAttendance();
+  return ref
+      .read(parentRepositoryProvider)
+      .getChildTodayAttendance(child.studentId);
+});
+
+/// 5 most recent leave requests for the child.
+final childLeaveRequestsProvider =
+    FutureProvider.autoDispose<List<ChildLeaveRequest>>((ref) async {
+  final child = ref.watch(childInfoProvider).valueOrNull;
+  if (child == null) return [];
+  return ref
+      .read(parentRepositoryProvider)
+      .getChildLeaveRequests(child.studentId);
 });
 
 /// Full attendance summary for the child in [year]/[month].
