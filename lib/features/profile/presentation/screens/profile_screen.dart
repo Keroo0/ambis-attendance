@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -517,12 +518,26 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         content: const Text(
           'Untuk kendala teknis, hubungi:\n\n'
           'Admin IT SMAN 07 Kab. Tangerang\n'
+          'WhatsApp: 088297910157\n'
           'Jam kerja: Senin–Jumat, 07.00–15.00 WIB',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
+            child: const Text('Tutup'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              final uri = Uri.parse('https://wa.me/6288297910157');
+              if (await canLaunchUrl(uri)) {
+                await launchUrl(uri, mode: LaunchMode.externalApplication);
+              }
+            },
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFF006A63),
+            ),
+            child: const Text('Chat WhatsApp'),
           ),
         ],
       ),
