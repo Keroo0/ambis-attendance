@@ -535,3 +535,39 @@ Sesi besar: 3 sub-agen paralel mengerjakan Flutter, Web Admin, dan Supabase migr
 - **Akun orang tua** dibuat dari admin web `/students` → "Tambah Siswa" → centang "Tambahkan Akun Orang Tua". Link `students.parent_id` diisi otomatis saat submit.
 - **`UserEntity`** sekarang plain Dart class di `lib/features/auth/data/models/user_entity.dart` (bukan Drift-generated). Fieldnya: `id, nisn, passwordHash, role, fullname, email, phone, avatarUrl, isActive`.
 - **flutter_animate** dipakai di: `dashboard_screen`, `parent_dashboard_screen`, `notifications_screen`, `grades_screen`. Import: `import 'package:flutter_animate/flutter_animate.dart';`
+- **Login ortu:** pakai NISN anak + password. Synthetic email = `{nisn_anak}@ortu.sman07.local` untuk Supabase Auth. Method `AuthRepository.loginParent(nisnAnak, password)` dipakai oleh `ParentLoginScreen`.
+
+---
+
+### Sesi 11 — Fix Login Ortu + Dashboard Ortu Expanded (2026-05-19)
+
+#### Bug Fix: Parent Login Broken
+
+- **Root cause:** `parent_login_screen.dart` memanggil `authProvider.notifier.login()` yang menghasilkan email `{nisn}@sman07.local` (domain siswa), tapi akun ortu dibuat dengan email berbeda di Supabase Auth.
+- **Fix pilihan:** Login ortu via **NISN ANAK + Password** menggunakan email sintesis `{nisn_anak}@ortu.sman07.local`.
+- **`app_constants.dart`** — Tambah `authParentEmailDomain = 'ortu.sman07.local'`.
+- **`auth_repository.dart`** — Tambah `nisnToParentEmail(nisnAnak)` dan `loginParent({nisnAnak, password})`. Method ini memverifikasi `role == 'ortu'` setelah login — jika bukan, sign out dan throw error.
+- **`auth_provider.dart`** — Tambah `loginParent(nisnAnak, password)` ke `AuthNotifier`.
+- **`parent_login_screen.dart`** — Ganti `login()` → `loginParent()`.
+- **`app/api/students/route.ts`** — Ganti email Supabase Auth ortu dari `body.parent.email` → `${nisn.trim()}@ortu.sman07.local`. Hapus duplikasi cek email nyata.
+- **`components/students/StudentModal.tsx`** — Hapus field "Email Orang Tua" dari form (tidak diperlukan lagi). Validasi email dihapus.
+
+#### Parent Dashboard Expansion
+
+- **`parent_repository.dart`** — Update `ChildGradeRow`: `utsScore` dan `uasScore` sekarang optional (`double?`). `getChildGradesSummary()` ditulis ulang untuk pivot UTS+UAS per mapel dalam satu query. Tambah:
+  - `ChildTodayAttendance` class (timeIn, timeOut, isPresent)
+  - `getChildTodayAttendance(studentId)` — query `attendance` table hari ini
+  - `ChildLeaveRequest` class (id, type, dateFrom, dateTo, status, reason)
+  - `getChildLeaveRequests(studentId)` — 5 pengajuan izin terbaru
+- **`parent_provider.dart`** — Tambah `childTodayAttendanceProvider` dan `childLeaveRequestsProvider`.
+- **`parent_dashboard_screen.dart`** — Ditulis ulang dengan 4 section:
+  1. Row: ProfileCard + AttendanceCard (bulan ini)
+  2. **BARU:** `_TodayAttendanceCard` — jam masuk & jam pulang hari ini secara real-time
+  3. `_GradesSummaryCard` — tabel nilai sekarang 3 kolom: Mata Pelajaran | UTS | UAS
+  4. **BARU:** `_LeaveRequestsCard` — 5 pengajuan izin/sakit terbaru + status badge (Menunggu/Disetujui/Ditolak)
+
+#### Status
+
+- `flutter analyze --no-fatal-infos` → **0 issues**
+- `npx tsc --noEmit` → **0 errors**
+- Commit push: `github.com/Keroo0/ambis-attendance` (`ccfebc7`) dan `github.com/Keroo0/ambis-admin` (`b48b7dc`)
