@@ -539,7 +539,7 @@ Sesi besar: 3 sub-agen paralel mengerjakan Flutter, Web Admin, dan Supabase migr
 
 ---
 
-### Sesi 11 — Fix Login Ortu + Dashboard Ortu Expanded (2026-05-19)
+### Sesi 11 — Fix Login Ortu + Dashboard Ortu Expanded + WA Bantuan IT (2026-05-19)
 
 #### Bug Fix: Parent Login Broken
 
@@ -566,8 +566,17 @@ Sesi besar: 3 sub-agen paralel mengerjakan Flutter, Web Admin, dan Supabase migr
   3. `_GradesSummaryCard` — tabel nilai sekarang 3 kolom: Mata Pelajaran | UTS | UAS
   4. **BARU:** `_LeaveRequestsCard` — 5 pengajuan izin/sakit terbaru + status badge (Menunggu/Disetujui/Ditolak)
 
+#### WhatsApp Bantuan IT (Flutter)
+
+- **`pubspec.yaml`** — Tambah `url_launcher: ^6.3.0`.
+- **`android/app/src/main/AndroidManifest.xml`** — Tambah `<queries>` `https` scheme agar `canLaunchUrl` bisa detect browser/WA di Android.
+- **`profile_screen.dart`** — `_showBantuanDialog()` diperbarui:
+  - Konten dialog sekarang tampil nomor **088297910157**
+  - Tombol "Tutup" + **"Chat WhatsApp"** (teal) — tap langsung buka WhatsApp ke `wa.me/6288297910157` via `launchUrl(mode: externalApplication)`
+
 #### Status
 
 - `flutter analyze --no-fatal-infos` → **0 issues**
 - `npx tsc --noEmit` → **0 errors**
-- Commit push: `github.com/Keroo0/ambis-attendance` (`ccfebc7`) dan `github.com/Keroo0/ambis-admin` (`b48b7dc`)
+- Commit push `ambis-attendance`: `ccfebc7` (parent login fix), `591b3bf` (PROGRESS.md), `234a6bd` (WA bantuan IT)
+- Commit push `ambis-admin`: `b48b7dc` (synthetic email parent)
