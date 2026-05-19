@@ -1,4 +1,3 @@
-import 'package:drift/drift.dart' as drift;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
@@ -9,7 +8,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
 import '../../../../core/constants/colors.dart';
-import '../../../../core/database/app_database.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../grades/data/repositories/grade_repository.dart';
 
@@ -40,38 +38,19 @@ final _waliKelasProvider = FutureProvider.autoDispose<String?>((ref) async {
 });
 
 final _profileStudentProvider =
-    FutureProvider.autoDispose<StudentEntity?>((ref) async {
+    FutureProvider.autoDispose<Map<String, dynamic>?>((ref) async {
   final user = ref.watch(authProvider).valueOrNull;
   if (user == null) return null;
-  final db = ref.watch(appDatabaseProvider);
-
   try {
     final row = await sb.Supabase.instance.client
         .from('students')
         .select('id, nisn, class, parent_id, date_of_birth, gender, address, phone_parent, created_at, updated_at')
         .eq('id', user.id)
         .maybeSingle();
-    if (row != null) {
-      final now = DateTime.now().millisecondsSinceEpoch;
-      await db.into(db.students).insertOnConflictUpdate(
-        StudentsCompanion(
-          id: drift.Value(row['id'] as String),
-          nisn: drift.Value(row['nisn'] as String),
-          className: drift.Value(row['class'] as String),
-          parentId: drift.Value(row['parent_id'] as String?),
-          dateOfBirth: drift.Value(row['date_of_birth'] as String?),
-          gender: drift.Value(row['gender'] as String?),
-          address: drift.Value(row['address'] as String?),
-          phoneParent: drift.Value(row['phone_parent'] as String?),
-          createdAt: drift.Value((row['created_at'] as int?) ?? now),
-          updatedAt: drift.Value((row['updated_at'] as int?) ?? now),
-        ),
-      );
-    }
-  } catch (_) {}
-
-  return (db.select(db.students)..where((s) => s.id.equals(user.id)))
-      .getSingleOrNull();
+    return row;
+  } catch (_) {
+    return null;
+  }
 });
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -158,14 +137,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       await supabase
           .from('users')
           .update({'avatar_url': url, 'updated_at': now}).eq('id', user.id);
-
-      final db = ref.read(appDatabaseProvider);
-      await (db.update(db.users)..where((t) => t.id.equals(user.id))).write(
-        UsersCompanion(
-          avatarUrl: drift.Value(url),
-          updatedAt: drift.Value(now),
-        ),
-      );
 
       await ref.read(authProvider.notifier).refreshUser();
 
@@ -465,7 +436,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 children: [
                   _ProfileHeaderCard(
                     user: user,
-                    className: studentAsync.valueOrNull?.className,
+                    className: studentAsync.valueOrNull?['class'] as String?,
                     uploadingPhoto: _uploadingPhoto,
                     onEditPhoto: _pickAndUploadPhoto,
                   ),
@@ -1043,18 +1014,11 @@ class _AkademikCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      clipBehavior: Clip.hardEdge,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border(
-          left: const BorderSide(color: AppColors.secondary, width: 4),
-          top: BorderSide(color: const Color(0xFFC4C6D0).withValues(alpha: 0.6)),
-          right:
-              BorderSide(color: const Color(0xFFC4C6D0).withValues(alpha: 0.6)),
-          bottom:
-              BorderSide(color: const Color(0xFFC4C6D0).withValues(alpha: 0.6)),
-        ),
+        border: Border.all(color: const Color(0xFFC4C6D0).withValues(alpha: 0.6)),
         boxShadow: const [
           BoxShadow(
             color: Color(0x08000000),
@@ -1063,30 +1027,43 @@ class _AkademikCard extends StatelessWidget {
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: Color(0xFF747780),
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.8,
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(width: 4, color: AppColors.secondary),
+            Expanded(
+              child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      color: Color(0xFF747780),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  if (icon != null) ...[
+                    Row(
+                      children: [
+                        Icon(icon, color: AppColors.secondary, size: 18),
+                        const SizedBox(width: 6),
+                        Expanded(child: child),
+                      ],
+                    ),
+                  ] else
+                    child,
+                ],
+              ),
             ),
           ),
-          const SizedBox(height: 6),
-          if (icon != null) ...[
-            Row(
-              children: [
-                Icon(icon, color: AppColors.secondary, size: 18),
-                const SizedBox(width: 6),
-                Expanded(child: child),
-              ],
-            ),
-          ] else
-            child,
         ],
+        ),
       ),
     );
   }

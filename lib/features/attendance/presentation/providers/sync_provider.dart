@@ -6,13 +6,10 @@ import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
 import '../../data/repositories/sync_repository.dart';
 
-/// Triggers `syncPendingAttendance` on:
+/// Triggers `syncPendingFaceEmbeddings` on:
 ///   1. App resume (`AppLifecycleState.resumed`).
 ///   2. Supabase auth state changes (login / token refresh).
 ///   3. Manual call to `triggerNow`.
-///
-/// Without `connectivity_plus` we can't react to network restore, so we
-/// also fire once on startup and let resume cover the airplane-mode flow.
 class SyncCoordinator with WidgetsBindingObserver {
   SyncCoordinator(this._ref);
 
@@ -47,12 +44,7 @@ class SyncCoordinator with WidgetsBindingObserver {
 
   Future<SyncResult> triggerNow() async {
     final repo = _ref.read(syncRepositoryProvider);
-    final attendance = await repo.syncPendingAttendance();
-    await repo.syncPendingFaceEmbeddings();
-    // Refresh the badge after each run.
-    // ignore: unused_result
-    _ref.invalidate(pendingSyncCountProvider);
-    return attendance;
+    return repo.syncPendingFaceEmbeddings();
   }
 }
 

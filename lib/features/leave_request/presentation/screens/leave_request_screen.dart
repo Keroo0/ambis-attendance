@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../../../core/database/app_database.dart';
 import '../providers/leave_provider.dart';
 
 class LeaveRequestScreen extends ConsumerStatefulWidget {
@@ -39,12 +38,12 @@ class _LeaveRequestScreenState extends ConsumerState<LeaveRequestScreen> {
     super.dispose();
   }
 
-  void _prefillFrom(LeaveRequestEntity leave) {
+  void _prefillFrom(Map<String, dynamic> leave) {
     setState(() {
-      _permitType = leave.type == 'sakit' ? 'Sakit' : 'Izin';
-      _startDate = leave.dateFrom != null ? DateTime.tryParse(leave.dateFrom!) : null;
-      _endDate = leave.dateTo != null ? DateTime.tryParse(leave.dateTo!) : null;
-      _reasonCtrl.text = leave.reason ?? '';
+      _permitType = leave['type'] == 'sakit' ? 'Sakit' : 'Izin';
+      _startDate = leave['date_from'] != null ? DateTime.tryParse(leave['date_from'] as String) : null;
+      _endDate = leave['date_to'] != null ? DateTime.tryParse(leave['date_to'] as String) : null;
+      _reasonCtrl.text = leave['reason'] as String? ?? '';
       _imageFile = null;
     });
     _scrollCtrl.animateTo(
@@ -563,7 +562,7 @@ class _LeaveRequestScreenState extends ConsumerState<LeaveRequestScreen> {
                                   children: leaves
                                       .map((l) => _LeaveCard(
                                             leave: l,
-                                            onResubmit: l.status == 'rejected'
+                                            onResubmit: l['status'] == 'rejected'
                                                 ? () => _prefillFrom(l)
                                                 : null,
                                           ))
@@ -743,7 +742,7 @@ class _DashedBorderPainter extends CustomPainter {
 class _LeaveCard extends StatelessWidget {
   const _LeaveCard({required this.leave, this.onResubmit});
 
-  final LeaveRequestEntity leave;
+  final Map<String, dynamic> leave;
   final VoidCallback? onResubmit;
 
   static const _monthNames = [
@@ -751,19 +750,21 @@ class _LeaveCard extends StatelessWidget {
     'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des',
   ];
 
-  Color get _statusColor => switch (leave.status) {
+  String get _status => leave['status'] as String? ?? 'pending';
+
+  Color get _statusColor => switch (_status) {
         'approved' => const Color(0xFF006A63),
         'rejected' => Colors.red,
         _ => const Color(0xFFF5B800),
       };
 
-  String get _statusLabel => switch (leave.status) {
+  String get _statusLabel => switch (_status) {
         'approved' => 'Disetujui',
         'rejected' => 'Ditolak',
         _ => 'Menunggu',
       };
 
-  IconData get _statusIcon => switch (leave.status) {
+  IconData get _statusIcon => switch (_status) {
         'approved' => Icons.check_circle_outline_rounded,
         'rejected' => Icons.cancel_outlined,
         _ => Icons.hourglass_empty_rounded,
@@ -778,8 +779,8 @@ class _LeaveCard extends StatelessWidget {
   }
 
   String get _dateRange {
-    final from = leave.dateFrom;
-    final to = leave.dateTo;
+    final from = leave['date_from'] as String?;
+    final to = leave['date_to'] as String?;
     if (from == null || to == null) return '-';
     if (from == to) return _formatDate(from);
     return '${_formatDate(from)} – ${_formatDate(to)}';
@@ -787,14 +788,17 @@ class _LeaveCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final type = leave['type'] as String? ?? '';
+    final reason = leave['reason'] as String?;
+    final rejectedReason = leave['rejected_reason'] as String?;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-            color: const Color(0xFFC4C6D0).withAlpha(80)),
+        border: Border.all(color: const Color(0xFFC4C6D0).withAlpha(80)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -817,7 +821,7 @@ class _LeaveCard extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        leave.type == 'sakit' ? 'Sakit' : 'Izin',
+                        type == 'sakit' ? 'Sakit' : 'Izin',
                         style: const TextStyle(
                           color: Color(0xFF191C1E),
                           fontWeight: FontWeight.w600,
@@ -845,18 +849,16 @@ class _LeaveCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '$_dateRange  ·  ${leave.reason ?? ''}',
-                  style: const TextStyle(
-                      color: Color(0xFF747780), fontSize: 12),
+                  '$_dateRange  ·  ${reason ?? ''}',
+                  style: const TextStyle(color: Color(0xFF747780), fontSize: 12),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
-                if (leave.rejectedReason != null) ...[
+                if (rejectedReason != null) ...[
                   const SizedBox(height: 4),
                   Text(
-                    'Alasan penolakan: ${leave.rejectedReason}',
-                    style: const TextStyle(
-                        color: Colors.red, fontSize: 11),
+                    'Alasan penolakan: $rejectedReason',
+                    style: const TextStyle(color: Colors.red, fontSize: 11),
                   ),
                 ],
                 if (onResubmit != null) ...[

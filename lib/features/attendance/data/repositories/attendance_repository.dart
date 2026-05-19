@@ -1,13 +1,11 @@
-import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:drift/drift.dart' as drift;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../../core/constants/app_constants.dart';
-import '../../../../core/database/app_database.dart';
 import '../../../../core/exceptions/app_exception.dart';
 import '../../../../core/services/location_service.dart';
 import '../../../../shared/utils/date_formatter.dart';
@@ -18,13 +16,27 @@ const Uuid _uuid = Uuid();
 enum AttendanceKind { checkIn, checkOut }
 
 class AttendanceRepository {
-  AttendanceRepository(this._db, this._faceRepo);
+  AttendanceRepository(this._supabase, this._faceRepo);
 
-  final AppDatabase _db;
+  final SupabaseClient _supabase;
   final FaceRepository _faceRepo;
 
-  /// Looks up settings + system time. Throws [TimeWindowException] when
-  /// [kind] falls outside the configured window.
+  /// Fetches all settings from Supabase settings table as a key→value map.
+  Future<Map<String, String>> _readSettings() async {
+    try {
+      final rows = await _supabase.from('settings').select('key, value');
+      return {
+        for (final r in (rows as List))
+          (r as Map<String, dynamic>)['key'] as String:
+              r['value'] as String? ?? '',
+      };
+    } catch (_) {
+      return {};
+    }
+  }
+
+  /// Checks the current time is within the configured window for [kind].
+  /// Throws [TimeWindowException] if outside the window.
   Future<void> assertWithinTimeWindow(AttendanceKind kind) async {
     final settings = await _readSettings();
     final start = kind == AttendanceKind.checkIn
@@ -44,22 +56,23 @@ class AttendanceRepository {
     }
   }
 
+  /// Returns the face recognition threshold from Supabase settings.
   Future<double> readFaceThreshold() async {
     final settings = await _readSettings();
     return double.tryParse(settings['face_recognition_threshold'] ?? '') ??
         AppConstants.defaultFaceThreshold;
   }
 
-  /// Persists an attendance row + sync-queue row for [kind]. Returns the
-  /// newly created or updated [AttendanceEntity].
-  Future<AttendanceEntity> recordAttendance({
+  /// Records attendance by verifying face and writing directly to Supabase.
+  /// Returns the upserted Supabase row as a [Map<String, dynamic>].
+  Future<Map<String, dynamic>> recordAttendance({
     required String studentId,
     required AttendanceKind kind,
     required Float32List capturedEmbedding,
     Position? position,
     String? deviceId,
   }) async {
-    // 1. Compare embeddings.
+    // 1. Compare face embeddings.
     final stored = await _faceRepo.getEmbedding(studentId);
     if (stored == null) {
       throw const FaceNotEnrolledException(
@@ -89,108 +102,63 @@ class AttendanceRepository {
     final now = DateTime.now();
     final today = DateFormatter.dateOnly(now);
     final timeStr = DateFormatter.timeOnly(now);
-
-    // 3. Upsert attendance row (UNIQUE student_id + date).
-    final existing = await (_db.select(_db.attendance)
-          ..where((a) => a.studentId.equals(studentId))
-          ..where((a) => a.date.equals(today)))
-        .getSingleOrNull();
-
-    final attendanceId = existing?.id ?? _uuid.v4();
     final epoch = now.millisecondsSinceEpoch;
 
-    final row = AttendanceCompanion(
-      id: drift.Value(attendanceId),
-      studentId: drift.Value(studentId),
-      date: drift.Value(today),
-      timeIn: kind == AttendanceKind.checkIn
-          ? drift.Value(timeStr)
-          : drift.Value(existing?.timeIn),
-      timeOut: kind == AttendanceKind.checkOut
-          ? drift.Value(timeStr)
-          : drift.Value(existing?.timeOut),
-      status: const drift.Value('present'),
-      isWithinGeofence: drift.Value(withinGeofence),
-      // TODO(phase2): wire real liveness challenge result.
-      livenessVerified: const drift.Value(true),
-      faceMatchScore: drift.Value(score),
-      locationLat: drift.Value(position?.latitude),
-      locationLng: drift.Value(position?.longitude),
-      deviceId: drift.Value(deviceId),
-      notes: const drift.Value(null),
-      syncedAt: const drift.Value(null),
-      createdAt: drift.Value(existing?.createdAt ?? epoch),
-      updatedAt: drift.Value(epoch),
-    );
+    // 3. Fetch existing row for today (if any).
+    final existing = await getTodayAttendance(studentId);
+    final attendanceId = existing?['id'] as String? ?? _uuid.v4();
 
-    await _db.into(_db.attendance).insertOnConflictUpdate(row);
+    // 4. Build the upsert payload.
+    final payload = <String, dynamic>{
+      'id': attendanceId,
+      'student_id': studentId,
+      'date': today,
+      'time_in': kind == AttendanceKind.checkIn
+          ? timeStr
+          : (existing?['time_in'] as String?),
+      'time_out': kind == AttendanceKind.checkOut
+          ? timeStr
+          : (existing?['time_out'] as String?),
+      'status': 'present',
+      'is_within_geofence': withinGeofence,
+      'liveness_verified': true,
+      'face_match_score': score,
+      'location_lat': position?.latitude,
+      'location_lng': position?.longitude,
+      'device_id': deviceId,
+      'notes': null,
+      'created_at': existing?['created_at'] as int? ?? epoch,
+      'updated_at': epoch,
+    };
 
-    final saved = await (_db.select(_db.attendance)
-          ..where((a) => a.id.equals(attendanceId)))
-        .getSingle();
+    // 5. Upsert to Supabase.
+    final result = await _supabase
+        .from('attendance')
+        .upsert(payload)
+        .select()
+        .single();
 
-    // 4. Enqueue for sync.
-    await _enqueue(saved, action: existing == null ? 'create' : 'update');
-
-    return saved;
+    return result;
   }
 
-  Future<void> _enqueue(
-    AttendanceEntity row, {
-    required String action,
-  }) async {
-    final payload = jsonEncode({
-      'id': row.id,
-      'student_id': row.studentId,
-      'date': row.date,
-      'time_in': row.timeIn,
-      'time_out': row.timeOut,
-      'status': row.status,
-      'is_within_geofence': row.isWithinGeofence,
-      'liveness_verified': row.livenessVerified,
-      'face_match_score': row.faceMatchScore,
-      'location_lat': row.locationLat,
-      'location_lng': row.locationLng,
-      'device_id': row.deviceId,
-      'notes': row.notes,
-      'created_at': row.createdAt,
-      'updated_at': row.updatedAt,
-    });
-
-    await _db.into(_db.attendanceQueue).insert(
-          AttendanceQueueCompanion(
-            id: drift.Value(_uuid.v4()),
-            attendanceId: drift.Value(row.id),
-            studentId: drift.Value(row.studentId),
-            action: drift.Value(action),
-            payload: drift.Value(payload),
-            status: const drift.Value('pending'),
-            retryCount: const drift.Value(0),
-            errorMessage: const drift.Value(null),
-            createdAt: drift.Value(DateTime.now().millisecondsSinceEpoch),
-            syncedAt: const drift.Value(null),
-          ),
-        );
-  }
-
-  Future<Map<String, String>> _readSettings() async {
-    final rows = await _db.select(_db.settings).get();
-    return {for (final r in rows) r.key: r.value};
-  }
-
-  /// Today's attendance row for the given student (or null).
-  Future<AttendanceEntity?> getTodayAttendance(String studentId) {
+  /// Returns today's attendance row for the given student, or null.
+  Future<Map<String, dynamic>?> getTodayAttendance(String studentId) async {
     final today = DateFormatter.dateOnly(DateTime.now());
-    return (_db.select(_db.attendance)
-          ..where((a) => a.studentId.equals(studentId))
-          ..where((a) => a.date.equals(today)))
-        .getSingleOrNull();
+    final rows = await _supabase
+        .from('attendance')
+        .select()
+        .eq('student_id', studentId)
+        .eq('date', today)
+        .limit(1);
+    final list = rows as List;
+    if (list.isEmpty) return null;
+    return list.first as Map<String, dynamic>;
   }
 }
 
 final attendanceRepositoryProvider = Provider<AttendanceRepository>((ref) {
   return AttendanceRepository(
-    ref.watch(appDatabaseProvider),
+    Supabase.instance.client,
     ref.watch(faceRepositoryProvider),
   );
 });

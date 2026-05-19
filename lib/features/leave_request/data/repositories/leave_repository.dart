@@ -1,13 +1,11 @@
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:drift/drift.dart' as drift;
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 import 'package:uuid/uuid.dart';
 
-import '../../../../core/database/app_database.dart';
 import '../../../../core/exceptions/app_exception.dart';
 
 const Uuid _uuid = Uuid();
@@ -18,9 +16,9 @@ String _formatDate(DateTime d) =>
     '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
 class LeaveRepository {
-  LeaveRepository(this._db);
+  LeaveRepository(this._supabase);
 
-  final AppDatabase _db;
+  final sb.SupabaseClient _supabase;
 
   /// Maps UI dropdown value to DB enum ('sakit' or 'izin').
   static String mapType(String uiType) =>
@@ -34,7 +32,9 @@ class LeaveRepository {
     }
   }
 
-  Future<LeaveRequestEntity> submitLeave({
+  /// Submits a leave request directly to Supabase.
+  /// Returns the inserted row as [Map<String, dynamic>].
+  Future<Map<String, dynamic>> submitLeave({
     required String studentId,
     required String uiType,
     required String reason,
@@ -47,22 +47,19 @@ class LeaveRepository {
     final compressed = await _compress(imageFile);
 
     final storagePath = '$studentId/${_uuid.v4()}.jpg';
-    await sb.Supabase.instance.client.storage
-        .from(_kBucketName)
-        .uploadBinary(
+    await _supabase.storage.from(_kBucketName).uploadBinary(
           storagePath,
           compressed,
           fileOptions: const sb.FileOptions(contentType: 'image/jpeg'),
         );
 
-    final attachmentUrl = sb.Supabase.instance.client.storage
-        .from(_kBucketName)
-        .getPublicUrl(storagePath);
+    final attachmentUrl =
+        _supabase.storage.from(_kBucketName).getPublicUrl(storagePath);
 
     final id = _uuid.v4();
     final now = DateTime.now().millisecondsSinceEpoch;
 
-    await sb.Supabase.instance.client.from('leave_requests').insert({
+    final result = await _supabase.from('leave_requests').insert({
       'id': id,
       'student_id': studentId,
       'type': mapType(uiType),
@@ -73,34 +70,19 @@ class LeaveRepository {
       'status': 'pending',
       'created_at': now,
       'updated_at': now,
-    });
+    }).select().single();
 
-    await _db.into(_db.leaveRequests).insert(
-      LeaveRequestsCompanion.insert(
-        id: id,
-        studentId: studentId,
-        type: mapType(uiType),
-        reason: drift.Value(reason),
-        dateFrom: drift.Value(_formatDate(dateFrom)),
-        dateTo: drift.Value(_formatDate(dateTo)),
-        attachmentUrl: drift.Value(attachmentUrl),
-        attachmentLocalPath: drift.Value(imageFile.path),
-        status: 'pending',
-        createdAt: now,
-        updatedAt: now,
-      ),
-    );
-
-    return (_db.select(_db.leaveRequests)
-          ..where((l) => l.id.equals(id)))
-        .getSingle();
+    return result;
   }
 
-  Future<List<LeaveRequestEntity>> getLeavesByStudent(String studentId) {
-    return (_db.select(_db.leaveRequests)
-          ..where((l) => l.studentId.equals(studentId))
-          ..orderBy([(l) => drift.OrderingTerm.desc(l.createdAt)]))
-        .get();
+  /// Returns all leave requests for [studentId] ordered by created_at desc.
+  Future<List<Map<String, dynamic>>> getLeavesByStudent(String studentId) async {
+    final rows = await _supabase
+        .from('leave_requests')
+        .select()
+        .eq('student_id', studentId)
+        .order('created_at', ascending: false);
+    return (rows as List).cast<Map<String, dynamic>>();
   }
 
   Future<Uint8List> _compress(File file) async {
@@ -132,5 +114,5 @@ class LeaveRepository {
 }
 
 final leaveRepositoryProvider = Provider<LeaveRepository>((ref) {
-  return LeaveRepository(ref.watch(appDatabaseProvider));
+  return LeaveRepository(sb.Supabase.instance.client);
 });

@@ -1,9 +1,9 @@
-import 'package:drift/drift.dart' show OrderingTerm;
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../../../core/database/app_database.dart';
 import '../../../../core/services/notification_service.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../notifications/data/dummy_notifications.dart';
@@ -11,27 +11,31 @@ import '../../../notifications/data/dummy_notifications.dart';
 // ── Providers ─────────────────────────────────────────────────────────────────
 
 final _todayAttendanceProvider =
-    FutureProvider.autoDispose<AttendanceEntity?>((ref) async {
+    FutureProvider.autoDispose<Map<String, dynamic>?>((ref) async {
   final user = ref.watch(authProvider).valueOrNull;
   if (user == null) return null;
-  final db = ref.watch(appDatabaseProvider);
   final today = _todayStr();
-  return (db.select(db.attendance)
-        ..where((a) => a.studentId.equals(user.id))
-        ..where((a) => a.date.equals(today)))
-      .getSingleOrNull();
+  final rows = await Supabase.instance.client
+      .from('attendance')
+      .select()
+      .eq('student_id', user.id)
+      .eq('date', today)
+      .limit(1);
+  final list = rows as List;
+  return list.isEmpty ? null : list.first as Map<String, dynamic>;
 });
 
 final _recentAttendanceProvider =
-    FutureProvider.autoDispose<List<AttendanceEntity>>((ref) async {
+    FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
   final user = ref.watch(authProvider).valueOrNull;
   if (user == null) return [];
-  final db = ref.watch(appDatabaseProvider);
-  return (db.select(db.attendance)
-        ..where((a) => a.studentId.equals(user.id))
-        ..orderBy([(a) => OrderingTerm.desc(a.date)])
-        ..limit(5))
-      .get();
+  final rows = await Supabase.instance.client
+      .from('attendance')
+      .select()
+      .eq('student_id', user.id)
+      .order('date', ascending: false)
+      .limit(5);
+  return (rows as List).cast<Map<String, dynamic>>();
 });
 
 // ── Screen ────────────────────────────────────────────────────────────────────
@@ -70,17 +74,26 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 children: [
                   _GreetingSection(
                     name: user?.fullname.split(' ').first ?? 'Siswa',
-                  ),
+                  ).animate().fadeIn(delay: 50.ms, duration: 300.ms),
                   const SizedBox(height: 16),
-                  _AttendanceStatusCard(attendance: todayAtt),
+                  _AttendanceStatusCard(attendance: todayAtt)
+                      .animate()
+                      .fadeIn(delay: 100.ms, duration: 300.ms)
+                      .slideY(begin: 0.08, end: 0, duration: 350.ms),
                   const SizedBox(height: 16),
                   _QuickActionsGrid(
                     onAbsensi: () => context.go('/attendance'),
                     onNilai: () => context.go('/grades'),
                     onIzin: () => context.push('/leave'),
-                  ),
+                  )
+                      .animate()
+                      .fadeIn(delay: 150.ms, duration: 300.ms)
+                      .slideY(begin: 0.08, end: 0, duration: 350.ms),
                   const SizedBox(height: 24),
-                  _RiwayatSection(recent: recentAtt),
+                  _RiwayatSection(recent: recentAtt)
+                      .animate()
+                      .fadeIn(delay: 200.ms, duration: 300.ms)
+                      .slideY(begin: 0.08, end: 0, duration: 350.ms),
                 ],
               ),
             ),
@@ -212,7 +225,7 @@ class _GreetingSection extends StatelessWidget {
 
 class _AttendanceStatusCard extends StatelessWidget {
   const _AttendanceStatusCard({required this.attendance});
-  final AsyncValue<AttendanceEntity?> attendance;
+  final AsyncValue<Map<String, dynamic>?> attendance;
 
   @override
   Widget build(BuildContext context) {
@@ -222,7 +235,6 @@ class _AttendanceStatusCard extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFC4C6D0).withAlpha(80)),
-        // Left accent border
       ),
       child: IntrinsicHeight(
         child: Row(
@@ -288,7 +300,7 @@ class _AttendanceStatusCard extends StatelessWidget {
 
 class _AttendanceInfo extends StatelessWidget {
   const _AttendanceInfo({required this.attendance});
-  final AttendanceEntity? attendance;
+  final Map<String, dynamic>? attendance;
 
   @override
   Widget build(BuildContext context) {
@@ -306,9 +318,11 @@ class _AttendanceInfo extends StatelessWidget {
         ],
       );
     }
-    final (label, color, textColor) = _statusStyle(attendance!.status);
-    final timeStr = attendance!.timeIn != null
-        ? 'Masuk ${_formatTime(attendance!.timeIn!)} WIB'
+    final status = attendance!['status'] as String? ?? '';
+    final timeIn = attendance!['time_in'] as String?;
+    final (label, color, textColor) = _statusStyle(status);
+    final timeStr = timeIn != null
+        ? 'Masuk ${_formatTime(timeIn)} WIB'
         : null;
 
     return Column(
@@ -507,7 +521,7 @@ class _SecondaryActionTile extends StatelessWidget {
 
 class _RiwayatSection extends StatelessWidget {
   const _RiwayatSection({required this.recent});
-  final AsyncValue<List<AttendanceEntity>> recent;
+  final AsyncValue<List<Map<String, dynamic>>> recent;
 
   @override
   Widget build(BuildContext context) {
@@ -607,19 +621,23 @@ class _RiwayatSection extends StatelessWidget {
 
 class _AttendanceHistoryCard extends StatelessWidget {
   const _AttendanceHistoryCard({required this.att});
-  final AttendanceEntity att;
+  final Map<String, dynamic> att;
 
   @override
   Widget build(BuildContext context) {
-    final isComplete = att.timeIn != null && att.timeOut != null;
+    final timeIn = att['time_in'] as String?;
+    final timeOut = att['time_out'] as String?;
+    final date = att['date'] as String? ?? '';
+
+    final isComplete = timeIn != null && timeOut != null;
     final badgeLabel = isComplete
         ? 'LENGKAP'
-        : att.timeIn != null
+        : timeIn != null
             ? 'DATANG SAJA'
             : 'TIDAK HADIR';
     final (badgeBg, badgeFg) = isComplete
         ? (const Color(0xFF47FBEB), const Color(0xFF006A63))
-        : att.timeIn != null
+        : timeIn != null
             ? (const Color(0xFFFEF9C3), const Color(0xFF854D0E))
             : (const Color(0xFFFFE4E6), const Color(0xFF9F1239));
 
@@ -645,7 +663,7 @@ class _AttendanceHistoryCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  _formatDate(att.date),
+                  _formatDate(date),
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -680,7 +698,7 @@ class _AttendanceHistoryCard extends StatelessWidget {
               Expanded(
                 child: _TimeBlock(
                   label: 'DATANG',
-                  time: att.timeIn != null ? _formatTime(att.timeIn!) : '—',
+                  time: timeIn != null ? _formatTime(timeIn) : '—',
                   iconBg: const Color(0xFFDCFCE7),
                   iconColor: const Color(0xFF16A34A),
                   icon: Icons.login_rounded,
@@ -695,7 +713,7 @@ class _AttendanceHistoryCard extends StatelessWidget {
               Expanded(
                 child: _TimeBlock(
                   label: 'PULANG',
-                  time: att.timeOut != null ? _formatTime(att.timeOut!) : '—',
+                  time: timeOut != null ? _formatTime(timeOut) : '—',
                   iconBg: const Color(0xFFDBEAFE),
                   iconColor: const Color(0xFF1D4ED8),
                   icon: Icons.logout_rounded,

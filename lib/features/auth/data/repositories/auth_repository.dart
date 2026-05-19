@@ -1,11 +1,12 @@
-import 'package:drift/drift.dart' as drift;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
 import '../../../../core/constants/app_constants.dart';
-import '../../../../core/database/app_database.dart';
 import '../../../../core/exceptions/app_exception.dart';
 import '../../../../core/services/secure_storage_service.dart';
+import '../models/user_entity.dart';
+
+export '../models/user_entity.dart';
 
 /// Maps a NISN to a synthetic Supabase Auth email so we can lean on
 /// Supabase Auth (Argon2 hashed passwords + JWT) instead of rolling our
@@ -16,12 +17,10 @@ String nisnToEmail(String nisn) =>
 class AuthRepository {
   AuthRepository({
     required this.supabase,
-    required this.db,
     required this.storage,
   });
 
   final sb.SupabaseClient supabase;
-  final AppDatabase db;
   final SecureStorageService storage;
 
   Future<UserEntity> login({
@@ -80,54 +79,6 @@ class AuthRepository {
       syncedAt: now,
     );
 
-    // Cache locally for offline access.
-    await db.into(db.users).insertOnConflictUpdate(
-          UsersCompanion(
-            id: drift.Value(entity.id),
-            nisn: drift.Value(entity.nisn),
-            passwordHash: const drift.Value(''),
-            role: drift.Value(entity.role),
-            fullname: drift.Value(entity.fullname),
-            email: drift.Value(entity.email),
-            phone: drift.Value(entity.phone),
-            avatarUrl: drift.Value(entity.avatarUrl),
-            isActive: drift.Value(entity.isActive),
-            createdAt: drift.Value(now),
-            updatedAt: drift.Value(now),
-            syncedAt: drift.Value(now),
-          ),
-        );
-
-    if (entity.role == 'siswa') {
-      try {
-        final studentRow = await supabase
-            .from('students')
-            .select(
-              'id, nisn, class, parent_id, date_of_birth, gender, address, phone_parent, created_at, updated_at',
-            )
-            .eq('id', entity.id)
-            .maybeSingle();
-        if (studentRow != null) {
-          await db.into(db.students).insertOnConflictUpdate(
-            StudentsCompanion(
-              id: drift.Value(studentRow['id'] as String),
-              nisn: drift.Value(studentRow['nisn'] as String),
-              className: drift.Value(studentRow['class'] as String),
-              parentId: drift.Value(studentRow['parent_id'] as String?),
-              dateOfBirth: drift.Value(studentRow['date_of_birth'] as String?),
-              gender: drift.Value(studentRow['gender'] as String?),
-              address: drift.Value(studentRow['address'] as String?),
-              phoneParent: drift.Value(studentRow['phone_parent'] as String?),
-              createdAt: drift.Value((studentRow['created_at'] as int?) ?? now),
-              updatedAt: drift.Value((studentRow['updated_at'] as int?) ?? now),
-            ),
-          );
-        }
-      } catch (_) {
-        // Non-fatal — student data will be fetched lazily when needed.
-      }
-    }
-
     await storage.saveSession(
       accessToken: session.accessToken,
       refreshToken: session.refreshToken ?? '',
@@ -147,18 +98,44 @@ class AuthRepository {
     await storage.clear();
   }
 
+  /// Reconstructs the current user from Supabase session + remote profile.
+  /// Returns null when not signed in or on network error.
   Future<UserEntity?> getCurrentUser() async {
     final userId = await storage.getUserId();
     if (userId == null) return null;
-    final query = db.select(db.users)..where((u) => u.id.equals(userId));
-    return query.getSingleOrNull();
+
+    try {
+      final profile = await supabase
+          .from('users')
+          .select('id, nisn, role, fullname, email, phone, avatar_url, is_active')
+          .eq('id', userId)
+          .single();
+
+      final now = DateTime.now().millisecondsSinceEpoch;
+      return UserEntity(
+        id: profile['id'] as String,
+        nisn: profile['nisn'] as String,
+        passwordHash: '',
+        role: profile['role'] as String,
+        fullname: profile['fullname'] as String,
+        email: profile['email'] as String?,
+        phone: profile['phone'] as String?,
+        avatarUrl: profile['avatar_url'] as String?,
+        isActive: profile['is_active'] as bool? ?? true,
+        createdAt: now,
+        updatedAt: now,
+        syncedAt: now,
+      );
+    } catch (_) {
+      // Network unavailable — cannot reconstruct user without local cache.
+      return null;
+    }
   }
 }
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return AuthRepository(
     supabase: sb.Supabase.instance.client,
-    db: ref.watch(appDatabaseProvider),
     storage: ref.watch(secureStorageProvider),
   );
 });

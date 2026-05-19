@@ -266,7 +266,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
 
                       // ── Face Registration Banner ────────
-                      Container(
+                      ClipRRect(
+                        borderRadius: const BorderRadius.vertical(
+                          bottom: Radius.circular(16),
+                        ),
+                        child: Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: DesignTokens.spacing24,
                           vertical: DesignTokens.spacing20,
@@ -275,9 +279,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           color: DesignTokens.surfaceContainer,
                           border: Border(
                             top: BorderSide(color: DesignTokens.outlineVariant, width: 1),
-                          ),
-                          borderRadius: BorderRadius.vertical(
-                            bottom: Radius.circular(16),
                           ),
                         ),
                         child: Row(
@@ -332,6 +333,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                           ],
                         ),
+                      ),
                       ),
                     ],
                   ),

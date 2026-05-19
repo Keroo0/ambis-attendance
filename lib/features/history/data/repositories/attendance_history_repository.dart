@@ -1,8 +1,6 @@
-import 'package:drift/drift.dart';
 import 'package:flutter/material.dart' show DateUtils;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../../../../core/database/app_database.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 enum AttendanceStatus { hadir, terlambat, izin, alfa }
 
@@ -21,9 +19,9 @@ class AttendanceDay {
 }
 
 class AttendanceHistoryRepository {
-  AttendanceHistoryRepository(this._db);
+  AttendanceHistoryRepository(this._supabase);
 
-  final AppDatabase _db;
+  final SupabaseClient _supabase;
 
   Future<List<AttendanceDay>> getMonthRecords(
     String studentId,
@@ -33,33 +31,39 @@ class AttendanceHistoryRepository {
     final mm = month.toString().padLeft(2, '0');
     final prefix = '$year-$mm-';
 
-    // Fetch attendance rows for the month.
-    final attendanceRows = await (_db.select(_db.attendance)
-          ..where((a) => a.studentId.equals(studentId))
-          ..where((a) => a.date.like('$prefix%')))
-        .get();
+    // Fetch attendance rows for the month from Supabase.
+    final attendanceResponse = await _supabase
+        .from('attendance')
+        .select()
+        .eq('student_id', studentId)
+        .like('date', '$prefix%');
+    final attendanceRows = (attendanceResponse as List)
+        .cast<Map<String, dynamic>>();
 
-    // Fetch approved leave requests that overlap this month.
+    // Fetch approved leave requests overlapping this month.
     final lastDay = DateUtils.getDaysInMonth(year, month);
     final monthStart = '$year-$mm-01';
     final monthEnd = '$year-$mm-${lastDay.toString().padLeft(2, '0')}';
 
-    final leaveRows = await (_db.select(_db.leaveRequests)
-          ..where((l) => l.studentId.equals(studentId))
-          ..where((l) => l.status.equals('approved'))
-          ..where((l) => l.dateFrom.isSmallerOrEqualValue(monthEnd))
-          ..where((l) => l.dateTo.isBiggerOrEqualValue(monthStart)))
-        .get();
+    final leaveResponse = await _supabase
+        .from('leave_requests')
+        .select('date_from, date_to')
+        .eq('student_id', studentId)
+        .eq('status', 'approved')
+        .lte('date_from', monthEnd)
+        .gte('date_to', monthStart);
+    final leaveRows = (leaveResponse as List).cast<Map<String, dynamic>>();
 
-    // Build lookup maps.
-    final attendanceByDate = {
-      for (final r in attendanceRows) r.date: r,
+    // Build lookup map for attendance rows.
+    final attendanceByDate = <String, Map<String, dynamic>>{
+      for (final r in attendanceRows)
+        (r['date'] as String? ?? ''): r,
     };
 
     bool isApprovedLeave(String dateStr) {
       for (final leave in leaveRows) {
-        final from = leave.dateFrom;
-        final to = leave.dateTo;
+        final from = leave['date_from'] as String?;
+        final to = leave['date_to'] as String?;
         if (from != null &&
             to != null &&
             dateStr.compareTo(from) >= 0 &&
@@ -75,10 +79,12 @@ class AttendanceHistoryRepository {
 
     for (int day = 1; day <= lastDay; day++) {
       final date = DateTime(year, month, day);
-      // Skip future dates and weekends (Saturday=6, Sunday=7).
-      if (date.isAfter(today)) { continue; }
+      // Skip future dates and weekends.
+      if (date.isAfter(today)) continue;
       if (date.weekday == DateTime.saturday ||
-          date.weekday == DateTime.sunday) { continue; }
+          date.weekday == DateTime.sunday) {
+        continue;
+      }
 
       final dateStr = '$year-$mm-${day.toString().padLeft(2, '0')}';
       final attendanceRow = attendanceByDate[dateStr];
@@ -88,8 +94,8 @@ class AttendanceHistoryRepository {
       String? checkOutTime;
 
       if (attendanceRow != null) {
-        checkInTime = attendanceRow.timeIn;
-        checkOutTime = attendanceRow.timeOut;
+        checkInTime = attendanceRow['time_in'] as String?;
+        checkOutTime = attendanceRow['time_out'] as String?;
         // Compare time strings lexicographically — works for HH:mm format.
         if (checkInTime == null || checkInTime.compareTo('07:30') <= 0) {
           status = AttendanceStatus.hadir;
@@ -116,5 +122,5 @@ class AttendanceHistoryRepository {
 
 final attendanceHistoryRepositoryProvider =
     Provider<AttendanceHistoryRepository>((ref) {
-  return AttendanceHistoryRepository(ref.watch(appDatabaseProvider));
+  return AttendanceHistoryRepository(Supabase.instance.client);
 });

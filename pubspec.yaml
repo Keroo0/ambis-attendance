@@ -55,6 +55,7 @@ dependencies:
   toastification: ^2.1.0
   excel: ^4.0.2
   share_plus: ^10.0.0
+  flutter_animate: ^4.5.0
 
   # HTTP
   dio: ^5.4.1

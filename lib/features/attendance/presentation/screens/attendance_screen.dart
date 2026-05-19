@@ -11,7 +11,6 @@ import 'package:go_router/go_router.dart';
 import 'package:google_ml_kit/google_ml_kit.dart' as mlk;
 import 'package:permission_handler/permission_handler.dart';
 
-import '../../../../core/database/app_database.dart';
 import '../../../../core/exceptions/app_exception.dart';
 import '../../../../core/services/camera_service.dart';
 import '../../../../core/services/location_service.dart';
@@ -47,12 +46,12 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen>
 
   // ── Kind (auto-detected from today's record) ──────────────────────
   AttendanceKind _kind = AttendanceKind.checkIn;
-  AttendanceEntity? _todayRecord;
+  Map<String, dynamic>? _todayRecord;
   bool _recordLoading = true;
   bool _geofenceEnabled = true;
 
   bool get _allDone =>
-      _todayRecord?.timeIn != null && _todayRecord?.timeOut != null;
+      _todayRecord?['time_in'] != null && _todayRecord?['time_out'] != null;
 
   // ── Face scanning ────────────────────────────────────────────────
   bool _scanning = false;
@@ -98,10 +97,10 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen>
       _recordLoading = false;
       if (record == null) {
         _kind = AttendanceKind.checkIn;
-      } else if (record.timeOut == null) {
+      } else if (record['time_out'] == null) {
         _kind = AttendanceKind.checkOut;
       }
-      // timeIn + timeOut both set → _allDone = true, kind unused
+      // time_in + time_out both set → _allDone = true, kind unused
     });
   }
 
@@ -362,7 +361,7 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen>
     _setStatus('Menyimpan...', const Color(0xFF191C1E));
 
     try {
-      await ref.read(attendanceRepositoryProvider).recordAttendance(
+      final result = await ref.read(attendanceRepositoryProvider).recordAttendance(
             studentId: user.id,
             kind: _kind,
             capturedEmbedding: emb,
@@ -370,11 +369,11 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen>
           );
       ref.read(rateLimitProvider.notifier).recordSuccess();
       if (!mounted) return;
-      final successMsg = _kind == AttendanceKind.checkIn
-          ? 'Berhasil absen masuk!'
-          : 'Berhasil absen pulang!';
-      _setStatus(successMsg, const Color(0xFF006A63));
-      await Future<void>.delayed(const Duration(milliseconds: 900));
+      final timeStr = _kind == AttendanceKind.checkIn
+          ? (result['time_in'] as String? ?? '')
+          : (result['time_out'] as String? ?? '');
+      final displayTime = timeStr.length >= 5 ? timeStr.substring(0, 5) : timeStr;
+      await _showSuccessDialog(context, _kind, displayTime);
       if (!mounted) return;
       context.go('/dashboard');
     } on AppException catch (e) {
@@ -384,6 +383,15 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen>
       if (!mounted) return;
       _fail('Gagal: $e');
     }
+  }
+
+  Future<void> _showSuccessDialog(
+      BuildContext ctx, AttendanceKind kind, String timeStr) {
+    return showDialog<void>(
+      context: ctx,
+      barrierDismissible: false,
+      builder: (_) => _AttendanceSuccessDialog(kind: kind, timeStr: timeStr),
+    );
   }
 
   void _fail(String msg) {
@@ -499,8 +507,8 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen>
             }
             if (_allDone) {
               return _AllDoneView(
-                timeIn: _todayRecord!.timeIn!,
-                timeOut: _todayRecord!.timeOut!,
+                timeIn: _todayRecord!['time_in'] as String? ?? '',
+                timeOut: _todayRecord!['time_out'] as String? ?? '',
                 onHome: () => context.go('/dashboard'),
               );
             }
@@ -562,8 +570,8 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen>
 
                         // Check-in / Check-out time cards
                         _TimeCardRow(
-                          timeIn: _todayRecord?.timeIn,
-                          timeOut: _todayRecord?.timeOut,
+                          timeIn: _todayRecord?['time_in'] as String?,
+                          timeOut: _todayRecord?['time_out'] as String?,
                         ),
 
                         const SizedBox(height: 12),
@@ -1165,4 +1173,105 @@ class _NotEnrolledView extends StatelessWidget {
           ),
         ),
       );
+}
+
+// ── Success Dialog ─────────────────────────────────────────────────────────────
+
+class _AttendanceSuccessDialog extends StatelessWidget {
+  const _AttendanceSuccessDialog({
+    required this.kind,
+    required this.timeStr,
+  });
+
+  final AttendanceKind kind;
+  final String timeStr;
+
+  @override
+  Widget build(BuildContext context) {
+    final isCheckIn = kind == AttendanceKind.checkIn;
+    final title = isCheckIn ? 'Selamat Belajar!' : 'Hati-hati di Jalan!';
+    final subtitle = isCheckIn
+        ? 'Absen masuk tercatat pukul $timeStr WIB'
+        : 'Absen pulang tercatat pukul $timeStr WIB. Sampai jumpa besok!';
+    final icon = isCheckIn ? Icons.school : Icons.directions_walk;
+    final iconBg = isCheckIn ? const Color(0xFF006A63) : const Color(0xFFF5B800);
+    final btnLabel = isCheckIn ? 'OK, Mulai Belajar' : 'Sampai Jumpa';
+    final btnColor = isCheckIn ? const Color(0xFF006A63) : const Color(0xFFF5B800);
+    final btnFg = isCheckIn ? Colors.white : const Color(0xFF191C1E);
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0.7, end: 1.0),
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeOutBack,
+        builder: (_, scale, child) => Transform.scale(
+          scale: scale,
+          child: Opacity(opacity: ((scale - 0.7) / 0.3).clamp(0.0, 1.0), child: child),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: iconBg,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: Colors.white, size: 36),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF191C1E),
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                subtitle,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Color(0xFF43474F),
+                  height: 1.4,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: btnColor,
+                    foregroundColor: btnFg,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: Text(
+                    btnLabel,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

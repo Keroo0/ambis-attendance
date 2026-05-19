@@ -1,11 +1,9 @@
 import 'package:drift/drift.dart';
 
-import 'students.dart';
-
 @DataClassName('FaceEmbeddingEntity')
 class FaceEmbeddings extends Table {
   TextColumn get id => text()();
-  TextColumn get studentId => text().unique().references(Students, #id)();
+  TextColumn get studentId => text().unique()();
   // Float32 array (192 * 4 = 768 bytes) packed as Uint8List.
   BlobColumn get embedding => blob()();
   IntColumn get enrollmentDate => integer()();

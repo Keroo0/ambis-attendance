@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -89,20 +90,29 @@ class ParentDashboardScreen extends ConsumerWidget {
                   children: [
                     Expanded(
                       flex: 2,
-                      child: _ProfileCard(child: child),
+                      child: _ProfileCard(child: child)
+                          .animate()
+                          .fadeIn(delay: 80.ms, duration: 300.ms)
+                          .slideY(begin: 0.08, end: 0, duration: 350.ms),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: _AttendanceCard(
                         countStr: attendanceStr,
                         onTap: () => context.push('/parent-history'),
-                      ),
+                      )
+                          .animate()
+                          .fadeIn(delay: 160.ms, duration: 300.ms)
+                          .slideY(begin: 0.08, end: 0, duration: 350.ms),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 16),
-              _GradesSummaryCard(child: child),
+              _GradesSummaryCard(child: child)
+                  .animate()
+                  .fadeIn(delay: 240.ms, duration: 300.ms)
+                  .slideY(begin: 0.08, end: 0, duration: 350.ms),
             ],
           );
         },

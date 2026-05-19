@@ -1,7 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/database/app_database.dart';
 import '../../data/repositories/auth_repository.dart';
+
+export '../../data/models/user_entity.dart';
 
 /// Async state of the currently signed-in user (null = signed out).
 class AuthNotifier extends AsyncNotifier<UserEntity?> {

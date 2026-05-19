@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:excel/excel.dart' hide Border;
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:path/path.dart' as p;
@@ -182,7 +183,10 @@ class _GradesScreenState extends ConsumerState<GradesScreen> {
                       loading: () =>
                           const _SummaryCard(summary: GradeSummary.empty),
                       error: (_, __) => const SizedBox.shrink(),
-                      data: (result) => _SummaryCard(summary: result.$2),
+                      data: (result) => _SummaryCard(summary: result.$2)
+                          .animate()
+                          .fadeIn(duration: 400.ms)
+                          .slideX(begin: -0.05, end: 0),
                     ),
                     const SizedBox(height: 16),
 
@@ -229,7 +233,9 @@ class _GradesScreenState extends ConsumerState<GradesScreen> {
                         isExporting: _isExporting,
                         onDownload: () =>
                             _exportToExcel(result.$1, result.$2),
-                      ),
+                      )
+                          .animate()
+                          .fadeIn(delay: 100.ms, duration: 300.ms),
                     ),
                   ],
                 ),
@@ -431,15 +437,11 @@ class _GradesTableCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      clipBehavior: Clip.hardEdge,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border(
-          left: const BorderSide(color: Color(0xFF006A63), width: 4),
-          top: BorderSide(color: const Color(0xFFE0E3E5).withAlpha(200)),
-          right: BorderSide(color: const Color(0xFFE0E3E5).withAlpha(200)),
-          bottom: BorderSide(color: const Color(0xFFE0E3E5).withAlpha(200)),
-        ),
+        border: Border.all(color: const Color(0xFFE0E3E5).withAlpha(200)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withAlpha(10),
@@ -448,8 +450,13 @@ class _GradesTableCard extends StatelessWidget {
           ),
         ],
       ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
+      child: IntrinsicHeight(
+        child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(width: 4, color: const Color(0xFF006A63)),
+          Expanded(
+            child: Column(
         children: [
           // Header row
           Container(
@@ -572,6 +579,10 @@ class _GradesTableCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    ),
+  ],
+),
       ),
     );
   }

@@ -1,11 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/models/notification_model.dart';
+import '../../data/models/notification_preferences_model.dart';
+import '../providers/notification_preferences_provider.dart';
 import '../providers/notifications_provider.dart';
 
 class NotificationsScreen extends ConsumerWidget {
   const NotificationsScreen({super.key});
+
+  void _showSettingsSheet(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => const _NotificationSettingsSheet(),
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -27,6 +41,11 @@ class NotificationsScreen extends ConsumerWidget {
           ),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.tune_rounded, size: 20),
+            tooltip: 'Pengaturan Notifikasi',
+            onPressed: () => _showSettingsSheet(context, ref),
+          ),
           async.whenOrNull(
             data: (list) {
               final unread = list.where((n) => !n.isRead).length;
@@ -44,7 +63,8 @@ class NotificationsScreen extends ConsumerWidget {
                 ),
               );
             },
-          ) ?? const SizedBox.shrink(),
+          ) ??
+              const SizedBox.shrink(),
         ],
       ),
       body: async.when(
@@ -58,8 +78,7 @@ class NotificationsScreen extends ConsumerWidget {
               const SizedBox(height: 12),
               const Text(
                 'Gagal memuat notifikasi',
-                style: TextStyle(
-                    color: Color(0xFF43474F), fontSize: 14),
+                style: TextStyle(color: Color(0xFF43474F), fontSize: 14),
               ),
               const SizedBox(height: 12),
               TextButton(
@@ -87,7 +106,9 @@ class NotificationsScreen extends ConsumerWidget {
                     onTap: () => ref
                         .read(notificationsProvider.notifier)
                         .markAsRead(n.id),
-                  );
+                  )
+                      .animate(key: ValueKey(n.id))
+                      .fadeIn(delay: (50 * i).ms, duration: 250.ms);
                 },
               ),
       ),
@@ -241,6 +262,141 @@ class _EmptyState extends StatelessWidget {
               style: TextStyle(color: Color(0xFF43474F), fontSize: 14)),
         ],
       ),
+    );
+  }
+}
+
+// ── Settings Sheet ────────────────────────────────────────────────────────────
+
+class _NotificationSettingsSheet extends ConsumerWidget {
+  const _NotificationSettingsSheet();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final prefsAsync = ref.watch(notificationPreferencesProvider);
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Drag handle
+            const SizedBox(height: 12),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: const Color(0xFFC4C6D0),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Pengaturan Notifikasi',
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF191C1E),
+              ),
+            ),
+            const SizedBox(height: 8),
+            prefsAsync.when(
+              loading: () => const Padding(
+                padding: EdgeInsets.symmetric(vertical: 32),
+                child: CircularProgressIndicator(),
+              ),
+              error: (_, __) => const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Text(
+                  'Gagal memuat pengaturan.',
+                  style: TextStyle(color: Colors.red, fontSize: 13),
+                ),
+              ),
+              data: (prefs) => _SettingsList(prefs: prefs),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingsList extends ConsumerWidget {
+  const _SettingsList({required this.prefs});
+  final NotificationPreferences prefs;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final notifier = ref.read(notificationPreferencesProvider.notifier);
+    final isSaving = ref.watch(notificationPreferencesProvider).isLoading;
+
+    return Stack(
+      children: [
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SwitchListTile(
+              title: const Text('Absensi'),
+              subtitle: const Text('Konfirmasi absen masuk & pulang'),
+              value: prefs.attendance,
+              activeThumbColor: const Color(0xFF006A63),
+              onChanged: isSaving
+                  ? null
+                  : (v) => notifier.save(prefs.copyWith(attendance: v)),
+            ),
+            SwitchListTile(
+              title: const Text('Nilai'),
+              subtitle: const Text('Pengumuman nilai baru'),
+              value: prefs.grade,
+              activeThumbColor: const Color(0xFF006A63),
+              onChanged: isSaving
+                  ? null
+                  : (v) => notifier.save(prefs.copyWith(grade: v)),
+            ),
+            SwitchListTile(
+              title: const Text('Izin'),
+              subtitle: const Text('Status pengajuan izin/sakit'),
+              value: prefs.leave,
+              activeThumbColor: const Color(0xFF006A63),
+              onChanged: isSaving
+                  ? null
+                  : (v) => notifier.save(prefs.copyWith(leave: v)),
+            ),
+            SwitchListTile(
+              title: const Text('Pengumuman'),
+              subtitle: const Text('Informasi dari sekolah'),
+              value: prefs.announcement,
+              activeThumbColor: const Color(0xFF006A63),
+              onChanged: isSaving
+                  ? null
+                  : (v) => notifier.save(prefs.copyWith(announcement: v)),
+            ),
+            SwitchListTile(
+              title: const Text('Sistem'),
+              subtitle: const Text('Pembaruan & notifikasi sistem'),
+              value: prefs.system,
+              activeThumbColor: const Color(0xFF006A63),
+              onChanged: isSaving
+                  ? null
+                  : (v) => notifier.save(prefs.copyWith(system: v)),
+            ),
+          ],
+        ),
+        if (isSaving)
+          Positioned.fill(
+            child: Container(
+              color: Colors.white.withValues(alpha: 0.6),
+              child: const Center(
+                child: SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

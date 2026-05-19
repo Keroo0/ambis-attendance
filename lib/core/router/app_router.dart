@@ -19,7 +19,6 @@ import '../../features/parent/presentation/screens/parent_attendance_history_scr
 import '../../features/parent/presentation/screens/parent_dashboard_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../shared/widgets/app_shell.dart';
-import '../database/app_database.dart';
 
 class _AuthRouterListenable extends ChangeNotifier {
   _AuthRouterListenable(this._ref) {

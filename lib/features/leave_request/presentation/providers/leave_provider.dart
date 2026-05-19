@@ -2,13 +2,13 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/database/app_database.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../data/repositories/leave_repository.dart';
 
-class LeaveNotifier extends Notifier<AsyncValue<List<LeaveRequestEntity>>> {
+class LeaveNotifier
+    extends Notifier<AsyncValue<List<Map<String, dynamic>>>> {
   @override
-  AsyncValue<List<LeaveRequestEntity>> build() {
+  AsyncValue<List<Map<String, dynamic>>> build() {
     _load();
     return const AsyncValue.loading();
   }
@@ -56,7 +56,7 @@ class LeaveNotifier extends Notifier<AsyncValue<List<LeaveRequestEntity>>> {
   }
 }
 
-final leaveProvider =
-    NotifierProvider<LeaveNotifier, AsyncValue<List<LeaveRequestEntity>>>(
+final leaveProvider = NotifierProvider<LeaveNotifier,
+    AsyncValue<List<Map<String, dynamic>>>>(
   LeaveNotifier.new,
 );

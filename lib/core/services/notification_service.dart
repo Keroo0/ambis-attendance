@@ -2,10 +2,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:timezone/timezone.dart' as tz;
 
 import '../constants/app_constants.dart';
-import '../database/app_database.dart';
 import '../../shared/utils/date_formatter.dart';
 
 const int _kCheckInReminderId = 1001;
@@ -15,9 +15,8 @@ const String _kChannelName = 'Pengingat Absen';
 const String _kChannelDesc = 'Notifikasi pengingat absen sebelum waktu habis';
 
 class NotificationService {
-  NotificationService(this._db);
+  NotificationService();
 
-  final AppDatabase _db;
   final _plugin = FlutterLocalNotificationsPlugin();
 
   /// Inisialisasi plugin. Dipanggil dari main() setelah WidgetsFlutterBinding.
@@ -58,14 +57,22 @@ class NotificationService {
     await cancelReminder();
 
     if (studentId != null) {
-      final today = DateFormatter.dateOnly(DateTime.now());
-      final existing = await (_db.select(_db.attendance)
-            ..where((a) => a.studentId.equals(studentId))
-            ..where((a) => a.date.equals(today)))
-          .getSingleOrNull();
-      if (existing?.timeIn != null) {
-        debugPrint('[Notification] Sudah absen hari ini — reminder dilewati.');
-        return;
+      try {
+        final today = DateFormatter.dateOnly(DateTime.now());
+        final rows = await Supabase.instance.client
+            .from('attendance')
+            .select('time_in')
+            .eq('student_id', studentId)
+            .eq('date', today)
+            .limit(1);
+        final list = rows as List;
+        if (list.isNotEmpty &&
+            (list.first as Map<String, dynamic>)['time_in'] != null) {
+          debugPrint('[Notification] Sudah absen hari ini — reminder dilewati.');
+          return;
+        }
+      } catch (_) {
+        // Non-fatal — proceed with scheduling.
       }
     }
 
@@ -127,7 +134,6 @@ class NotificationService {
       );
       debugPrint('[Notification] Reminder dijadwalkan: $scheduled');
     } catch (e) {
-      // Fallback jika SCHEDULE_EXACT_ALARM tidak diizinkan (MIUI/Samsung agresif)
       debugPrint('[Notification] Exact alarm gagal ($e), pakai inexact.');
       await _plugin.zonedSchedule(
         _kCheckInReminderId,
@@ -154,9 +160,19 @@ class NotificationService {
   }
 
   Future<String> _readTimeInEnd() async {
-    final rows = await _db.select(_db.settings).get();
-    final map = {for (final r in rows) r.key: r.value};
-    return map['time_in_end'] ?? AppConstants.defaultTimeInEnd;
+    try {
+      final rows = await Supabase.instance.client
+          .from('settings')
+          .select('key, value')
+          .eq('key', 'time_in_end')
+          .limit(1);
+      final list = rows as List;
+      if (list.isNotEmpty) {
+        return (list.first as Map<String, dynamic>)['value'] as String? ??
+            AppConstants.defaultTimeInEnd;
+      }
+    } catch (_) {}
+    return AppConstants.defaultTimeInEnd;
   }
 
   Future<String> _resolveLocalTimeZone() async {
@@ -170,5 +186,5 @@ class NotificationService {
 }
 
 final notificationServiceProvider = Provider<NotificationService>((ref) {
-  return NotificationService(ref.watch(appDatabaseProvider));
+  return NotificationService();
 });
