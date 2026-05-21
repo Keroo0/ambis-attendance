@@ -6,7 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/services/notification_service.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
-import '../../../notifications/data/dummy_notifications.dart';
+import '../../../notifications/presentation/providers/notifications_provider.dart';
 
 // ── Providers ─────────────────────────────────────────────────────────────────
 
@@ -106,12 +106,59 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
 // ── Top Bar ───────────────────────────────────────────────────────────────────
 
-class _TopBar extends StatelessWidget {
+class _TopBar extends ConsumerStatefulWidget {
   const _TopBar({this.nisn});
   final String? nisn;
 
   @override
+  ConsumerState<_TopBar> createState() => _TopBarState();
+}
+
+class _TopBarState extends ConsumerState<_TopBar> {
+  RealtimeChannel? _channel;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _subscribe());
+  }
+
+  void _subscribe() {
+    final user = ref.read(authProvider).valueOrNull;
+    if (user == null) return;
+    _channel = Supabase.instance.client
+        .channel('notifications:${user.id}')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'notifications',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'user_id',
+            value: user.id,
+          ),
+          callback: (_) {
+            if (mounted) ref.invalidate(notificationsProvider);
+          },
+        )
+        .subscribe();
+  }
+
+  @override
+  void dispose() {
+    final ch = _channel;
+    if (ch != null) {
+      Supabase.instance.client.removeChannel(ch);
+    }
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final unread = ref.watch(notificationsProvider).maybeWhen(
+          data: (list) => list.where((n) => !n.isRead).length,
+          orElse: () => 0,
+        );
     return Container(
       height: 64,
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -161,7 +208,7 @@ class _TopBar extends StatelessWidget {
                 ),
                 onPressed: () => context.push('/notifications'),
               ),
-              if (kUnreadNotificationCount > 0)
+              if (unread > 0)
                 Positioned(
                   right: 8,
                   top: 8,
@@ -174,7 +221,7 @@ class _TopBar extends StatelessWidget {
                     ),
                     child: Center(
                       child: Text(
-                        '$kUnreadNotificationCount',
+                        '$unread',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 9,
