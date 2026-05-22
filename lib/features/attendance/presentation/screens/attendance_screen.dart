@@ -373,7 +373,8 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen>
           ? (result['time_in'] as String? ?? '')
           : (result['time_out'] as String? ?? '');
       final displayTime = timeStr.length >= 5 ? timeStr.substring(0, 5) : timeStr;
-      await _showSuccessDialog(context, _kind, displayTime);
+      final score = (result['face_match_score'] as num?)?.toDouble();
+      await _showSuccessDialog(context, _kind, displayTime, score);
       if (!mounted) return;
       context.go('/dashboard');
     } on AppException catch (e) {
@@ -386,11 +387,12 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen>
   }
 
   Future<void> _showSuccessDialog(
-      BuildContext ctx, AttendanceKind kind, String timeStr) {
+      BuildContext ctx, AttendanceKind kind, String timeStr, double? score) {
     return showDialog<void>(
       context: ctx,
       barrierDismissible: false,
-      builder: (_) => _AttendanceSuccessDialog(kind: kind, timeStr: timeStr),
+      builder: (_) =>
+          _AttendanceSuccessDialog(kind: kind, timeStr: timeStr, score: score),
     );
   }
 
@@ -1181,10 +1183,12 @@ class _AttendanceSuccessDialog extends StatelessWidget {
   const _AttendanceSuccessDialog({
     required this.kind,
     required this.timeStr,
+    this.score,
   });
 
   final AttendanceKind kind;
   final String timeStr;
+  final double? score;
 
   @override
   Widget build(BuildContext context) {
@@ -1193,6 +1197,9 @@ class _AttendanceSuccessDialog extends StatelessWidget {
     final subtitle = isCheckIn
         ? 'Absen masuk tercatat pukul $timeStr WIB'
         : 'Absen pulang tercatat pukul $timeStr WIB. Sampai jumpa besok!';
+    final accuracy = score == null
+        ? null
+        : (score!.clamp(0.0, 1.0) * 100).toStringAsFixed(1);
     final icon = isCheckIn ? Icons.school : Icons.directions_walk;
     final iconBg = isCheckIn ? const Color(0xFF006A63) : const Color(0xFFF5B800);
     final btnLabel = isCheckIn ? 'OK, Mulai Belajar' : 'Sampai Jumpa';
@@ -1243,6 +1250,33 @@ class _AttendanceSuccessDialog extends StatelessWidget {
                 ),
                 textAlign: TextAlign.center,
               ),
+              if (accuracy != null) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF006A63).withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.verified_rounded,
+                          size: 14, color: Color(0xFF006A63)),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Akurasi wajah $accuracy%',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF006A63),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,

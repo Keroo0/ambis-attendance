@@ -244,21 +244,27 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
     });
 
     try {
-      await ref.read(attendanceRepositoryProvider).recordAttendance(
-            studentId: user.id,
-            kind: widget.kind,
-            capturedEmbedding: embedding,
-            position: widget.position,
-          );
+      final result =
+          await ref.read(attendanceRepositoryProvider).recordAttendance(
+                studentId: user.id,
+                kind: widget.kind,
+                capturedEmbedding: embedding,
+                position: widget.position,
+              );
       ref.read(rateLimitProvider.notifier).recordSuccess();
       if (!mounted) return;
+      final score = (result['face_match_score'] as num?)?.toDouble();
+      final accuracy = score == null
+          ? ''
+          : ' (akurasi ${(score.clamp(0.0, 1.0) * 100).toStringAsFixed(1)}%)';
       setState(() {
-        _status = widget.kind == AttendanceKind.checkIn
-            ? 'Berhasil absen masuk!'
-            : 'Berhasil absen pulang!';
+        _status = (widget.kind == AttendanceKind.checkIn
+                ? 'Berhasil absen masuk!'
+                : 'Berhasil absen pulang!') +
+            accuracy;
         _statusColor = AppColors.darkSuccess;
       });
-      await Future<void>.delayed(const Duration(milliseconds: 900));
+      await Future<void>.delayed(const Duration(milliseconds: 1500));
       if (!mounted) return;
       context.go('/dashboard');
     } on AppException catch (e) {

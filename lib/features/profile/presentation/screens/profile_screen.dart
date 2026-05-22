@@ -510,6 +510,32 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
   }
 
+  Future<void> _openWhatsApp(BuildContext context, String phone) async {
+    final candidates = <Uri>[
+      Uri.parse('whatsapp://send?phone=$phone'),
+      Uri.parse('https://wa.me/$phone'),
+      Uri.parse('https://api.whatsapp.com/send?phone=$phone'),
+    ];
+    for (final uri in candidates) {
+      try {
+        final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+        if (ok) return;
+      } catch (_) {
+        // try next candidate
+      }
+    }
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Tidak bisa membuka WhatsApp. Pastikan aplikasi WhatsApp terpasang '
+            'atau gunakan browser.',
+          ),
+        ),
+      );
+    }
+  }
+
   void _showBantuanDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -529,10 +555,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           TextButton(
             onPressed: () async {
               Navigator.pop(context);
-              final uri = Uri.parse('https://wa.me/6288297910157');
-              if (await canLaunchUrl(uri)) {
-                await launchUrl(uri, mode: LaunchMode.externalApplication);
-              }
+              await _openWhatsApp(context, '6288297910157');
             },
             style: TextButton.styleFrom(
               foregroundColor: const Color(0xFF006A63),

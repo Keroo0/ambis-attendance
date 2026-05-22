@@ -12,6 +12,7 @@ import 'package:toastification/toastification.dart';
 import '../../../../core/services/camera_service.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../providers/enrollment_provider.dart';
+import '../providers/face_enrollment_provider.dart';
 
 class EnrollmentScreen extends ConsumerStatefulWidget {
   const EnrollmentScreen({super.key, this.guestUserId});
@@ -138,6 +139,9 @@ class _EnrollmentScreenState extends ConsumerState<EnrollmentScreen>
 
     try {
       await ref.read(enrollmentControllerProvider.notifier).finalize(userId);
+      // Buang cache `hasEnrolledFaceProvider` agar layar Absensi yang dibuka
+      // sebelum enrolment selesai langsung baca status terbaru (`true`).
+      ref.invalidate(hasEnrolledFaceProvider);
       if (!mounted) return;
       await Future<void>.delayed(const Duration(milliseconds: 800));
       if (!mounted) return;
