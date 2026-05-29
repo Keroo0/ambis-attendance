@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -511,29 +512,40 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _openWhatsApp(BuildContext context, String phone) async {
-    final candidates = <Uri>[
-      Uri.parse('whatsapp://send?phone=$phone'),
-      Uri.parse('https://wa.me/$phone'),
-      Uri.parse('https://api.whatsapp.com/send?phone=$phone'),
-    ];
-    for (final uri in candidates) {
-      try {
-        final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
-        if (ok) return;
-      } catch (_) {
-        // try next candidate
-      }
+    final waUri = Uri.parse('whatsapp://send?phone=$phone');
+    final canLaunch = await canLaunchUrl(waUri);
+    if (canLaunch) {
+      await launchUrl(waUri, mode: LaunchMode.externalApplication);
+      return;
     }
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Tidak bisa membuka WhatsApp. Pastikan aplikasi WhatsApp terpasang '
-            'atau gunakan browser.',
-          ),
+    if (!context.mounted) return;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('WhatsApp Tidak Terinstall'),
+        content: Text(
+          'Hubungi Admin IT melalui nomor berikut:\n\n'
+          '$phone\n\n'
+          'Silakan salin nomor ini dan buka WhatsApp secara manual.',
         ),
-      );
-    }
+        actions: [
+          TextButton(
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: phone));
+              Navigator.of(ctx).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Nomor berhasil disalin')),
+              );
+            },
+            child: const Text('Salin Nomor'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Tutup'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showBantuanDialog(BuildContext context) {
