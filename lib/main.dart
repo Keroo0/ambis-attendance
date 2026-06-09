@@ -33,6 +33,11 @@ Future<void> main() async {
         requestBadgePermission: false,
         requestSoundPermission: false,
       ),
+      macOS: DarwinInitializationSettings(
+        requestAlertPermission: false,
+        requestBadgePermission: false,
+        requestSoundPermission: false,
+      ),
     ),
   );
 
