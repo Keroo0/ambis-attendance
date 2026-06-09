@@ -29,6 +29,7 @@ class _EnrollmentScreenState extends ConsumerState<EnrollmentScreen>
   CameraController? _controller;
   bool _initializing = true;
   String? _initError;
+  bool _permissionDenied = false;
   Timer? _captureTimer;
   bool _capturing = false;
 
@@ -59,6 +60,7 @@ class _EnrollmentScreenState extends ConsumerState<EnrollmentScreen>
     if (!status.isGranted) {
       setState(() {
         _initializing = false;
+        _permissionDenied = true;
         _initError = 'Izin kamera ditolak.';
       });
       return;
@@ -319,6 +321,14 @@ class _EnrollmentScreenState extends ConsumerState<EnrollmentScreen>
                   height: 1.5,
                 ),
               ),
+              if (_permissionDenied) ...[
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  onPressed: openAppSettings,
+                  icon: const Icon(Icons.settings_outlined),
+                  label: const Text('Buka Pengaturan'),
+                ),
+              ],
             ],
           ),
         ),
