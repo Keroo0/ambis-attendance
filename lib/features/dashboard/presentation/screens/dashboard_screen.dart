@@ -6,9 +6,16 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/services/notification_service.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../enrollment/data/repositories/face_repository.dart';
 import '../../../notifications/presentation/providers/notifications_provider.dart';
 
 // ── Providers ─────────────────────────────────────────────────────────────────
+
+final _hasFaceDataProvider = FutureProvider.autoDispose<bool>((ref) async {
+  final user = ref.watch(authProvider).valueOrNull;
+  if (user == null) return true;
+  return ref.read(faceRepositoryProvider).hasActiveEmbedding(user.id);
+});
 
 final _todayAttendanceProvider =
     FutureProvider.autoDispose<Map<String, dynamic>?>((ref) async {
@@ -61,6 +68,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final user = ref.watch(authProvider).valueOrNull;
     final todayAtt = ref.watch(_todayAttendanceProvider);
     final recentAtt = ref.watch(_recentAttendanceProvider);
+    final hasFace = ref.watch(_hasFaceDataProvider);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F9FB),
@@ -75,6 +83,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   _GreetingSection(
                     name: user?.fullname.split(' ').first ?? 'Siswa',
                   ).animate().fadeIn(delay: 50.ms, duration: 300.ms),
+                  if (hasFace.valueOrNull == false) ...[
+                    const SizedBox(height: 12),
+                    const _FaceWarningBanner()
+                        .animate()
+                        .fadeIn(delay: 80.ms, duration: 300.ms)
+                        .slideY(begin: 0.08, end: 0, duration: 350.ms),
+                  ],
                   const SizedBox(height: 16),
                   _AttendanceStatusCard(attendance: todayAtt)
                       .animate()
@@ -264,6 +279,73 @@ class _GreetingSection extends StatelessWidget {
           style: TextStyle(fontSize: 14, color: Color(0xFF43474F)),
         ),
       ],
+    );
+  }
+}
+
+// ── Face Warning Banner ───────────────────────────────────────────────────────
+
+class _FaceWarningBanner extends StatelessWidget {
+  const _FaceWarningBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => context.push('/enrollment'),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFF7ED),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFFB923C).withAlpha(120)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: const Color(0xFFFED7AA),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.face_retouching_off_rounded,
+                color: Color(0xFFEA580C),
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Data wajah belum terdaftar',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF9A3412),
+                    ),
+                  ),
+                  SizedBox(height: 2),
+                  Text(
+                    'Daftarkan wajah agar bisa absen',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFFEA580C),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: Color(0xFFEA580C),
+              size: 20,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
