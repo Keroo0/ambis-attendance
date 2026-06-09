@@ -40,6 +40,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
   CameraController? _controller;
   bool _initializing = true;
   String? _initError;
+  bool _permissionDenied = false;
   Timer? _captureTimer;
   Timer? _livenessTimeoutTimer;
   bool _busy = false;
@@ -77,6 +78,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
     if (!perm.isGranted) {
       setState(() {
         _initializing = false;
+        _permissionDenied = true;
         _initError = 'Izin kamera ditolak.';
       });
       return;
@@ -379,7 +381,22 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
               ? Center(
                   child: Padding(
                     padding: const EdgeInsets.all(Spacing.md),
-                    child: Text(_initError!, textAlign: TextAlign.center),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.camera_alt_outlined, size: 48, color: Colors.grey),
+                        const SizedBox(height: 16),
+                        Text(_initError!, textAlign: TextAlign.center),
+                        if (_permissionDenied) ...[
+                          const SizedBox(height: 16),
+                          ElevatedButton.icon(
+                            onPressed: openAppSettings,
+                            icon: const Icon(Icons.settings_outlined),
+                            label: const Text('Buka Pengaturan'),
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
                 )
               : Column(
