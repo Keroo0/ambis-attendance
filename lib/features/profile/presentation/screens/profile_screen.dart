@@ -337,7 +337,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               try {
                                 final user =
                                     ref.read(authProvider).valueOrNull;
-                                if (user == null) return;
+                                if (user == null) {
+                                  setSheetState(() {
+                                    errorMsg = 'Sesi berakhir, silakan login ulang.';
+                                    loading = false;
+                                  });
+                                  return;
+                                }
 
                                 final email =
                                     '${user.nisn}@sman07.local';
@@ -513,11 +519,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   Future<void> _openWhatsApp(BuildContext context, String phone) async {
     final waUri = Uri.parse('whatsapp://send?phone=$phone');
-    final canLaunch = await canLaunchUrl(waUri);
-    if (canLaunch) {
-      await launchUrl(waUri, mode: LaunchMode.externalApplication);
-      return;
+    final webUri = Uri.parse('https://wa.me/$phone');
+
+    // Bungkus dalam try-catch: canLaunchUrl/launchUrl bisa melempar
+    // PlatformException (mis. scheme tidak queryable) yang kalau tidak
+    // ditangkap menyebabkan layar error hitam/abu-abu.
+    try {
+      if (await canLaunchUrl(waUri)) {
+        await launchUrl(waUri, mode: LaunchMode.externalApplication);
+        return;
+      }
+      if (await canLaunchUrl(webUri)) {
+        await launchUrl(webUri, mode: LaunchMode.externalApplication);
+        return;
+      }
+    } catch (_) {
+      // Lanjut ke dialog manual di bawah.
     }
+
     if (!context.mounted) return;
     showDialog(
       context: context,
