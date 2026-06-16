@@ -2,9 +2,10 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:camera/camera.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:toastification/toastification.dart';
@@ -22,6 +23,33 @@ class EnrollmentScreen extends ConsumerStatefulWidget {
 
   @override
   ConsumerState<EnrollmentScreen> createState() => _EnrollmentScreenState();
+}
+
+@visibleForTesting
+Size cameraPreviewCoverSizeForCircle({
+  required double dimension,
+  required double aspectRatio,
+}) {
+  if (aspectRatio <= 0) return Size.square(dimension);
+
+  if (aspectRatio >= 1) {
+    return Size(dimension * aspectRatio, dimension);
+  }
+
+  return Size(dimension, dimension / aspectRatio);
+}
+
+@visibleForTesting
+double cameraPreviewDisplayAspectRatio({
+  required double controllerAspectRatio,
+  required DeviceOrientation orientation,
+}) {
+  if (controllerAspectRatio <= 0) return 1;
+
+  final isLandscape = orientation == DeviceOrientation.landscapeLeft ||
+      orientation == DeviceOrientation.landscapeRight;
+
+  return isLandscape ? controllerAspectRatio : 1 / controllerAspectRatio;
 }
 
 class _EnrollmentScreenState extends ConsumerState<EnrollmentScreen>
@@ -385,15 +413,7 @@ class _EnrollmentScreenState extends ConsumerState<EnrollmentScreen>
                     ),
                   ),
                 ),
-                // Camera preview clipped to circle
-                ClipOval(
-                  child: SizedBox.square(
-                    dimension: 284,
-                    child: _controller != null
-                        ? CameraPreview(_controller!)
-                        : Container(color: const Color(0xFFECEEF0)),
-                  ),
-                ),
+                _buildCircularCameraPreview(),
                 // Scanning animation overlay
                 if (!isDone)
                   ClipOval(
@@ -500,9 +520,7 @@ class _EnrollmentScreenState extends ConsumerState<EnrollmentScreen>
             child: ElevatedButton.icon(
               onPressed: isDone ? null : _tickCapture,
               icon: Icon(
-                isDone
-                    ? Icons.check_rounded
-                    : Icons.photo_camera_rounded,
+                isDone ? Icons.check_rounded : Icons.photo_camera_rounded,
                 size: 22,
               ),
               label: Text(
@@ -515,8 +533,7 @@ class _EnrollmentScreenState extends ConsumerState<EnrollmentScreen>
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF001736),
                 foregroundColor: Colors.white,
-                disabledBackgroundColor:
-                    const Color(0xFF001736).withAlpha(120),
+                disabledBackgroundColor: const Color(0xFF001736).withAlpha(120),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
                 ),
@@ -526,6 +543,42 @@ class _EnrollmentScreenState extends ConsumerState<EnrollmentScreen>
           ),
           const SizedBox(height: 24),
         ],
+      ),
+    );
+  }
+
+  Widget _buildCircularCameraPreview() {
+    const previewDimension = 284.0;
+    final controller = _controller;
+
+    if (controller == null || !controller.value.isInitialized) {
+      return ClipOval(
+        child: SizedBox.square(
+          dimension: previewDimension,
+          child: Container(color: const Color(0xFFECEEF0)),
+        ),
+      );
+    }
+
+    final previewSize = cameraPreviewCoverSizeForCircle(
+      dimension: previewDimension,
+      aspectRatio: cameraPreviewDisplayAspectRatio(
+        controllerAspectRatio: controller.value.aspectRatio,
+        orientation: controller.value.deviceOrientation,
+      ),
+    );
+
+    return ClipOval(
+      child: SizedBox.square(
+        dimension: previewDimension,
+        child: FittedBox(
+          fit: BoxFit.cover,
+          child: SizedBox(
+            width: previewSize.width,
+            height: previewSize.height,
+            child: CameraPreview(controller),
+          ),
+        ),
       ),
     );
   }
@@ -547,11 +600,13 @@ class _ReticlePainter extends CustomPainter {
     // Top
     canvas.drawLine(Offset(cx, 0), Offset(cx, tickLen), paint);
     // Bottom
-    canvas.drawLine(Offset(cx, size.height), Offset(cx, size.height - tickLen), paint);
+    canvas.drawLine(
+        Offset(cx, size.height), Offset(cx, size.height - tickLen), paint);
     // Left
     canvas.drawLine(Offset(0, cy), Offset(tickLen, cy), paint);
     // Right
-    canvas.drawLine(Offset(size.width, cy), Offset(size.width - tickLen, cy), paint);
+    canvas.drawLine(
+        Offset(size.width, cy), Offset(size.width - tickLen, cy), paint);
   }
 
   @override

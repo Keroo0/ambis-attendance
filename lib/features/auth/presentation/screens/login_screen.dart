@@ -36,7 +36,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             type: ToastificationType.success,
             style: ToastificationStyle.flatColored,
             title: Text('Halo, ${user.fullname}!', style: DesignTokens.bodyLg),
-            description: const Text('Login berhasil', style: DesignTokens.bodySm),
+            description:
+                const Text('Login berhasil', style: DesignTokens.bodySm),
             autoCloseDuration: const Duration(seconds: 2),
             alignment: Alignment.topCenter,
           );
@@ -92,18 +93,39 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: IconButton(
+                    onPressed: isLoading ? null : () => context.go('/welcome'),
+                    icon: const Icon(Icons.arrow_back_rounded, size: 20),
+                    color: DesignTokens.onSurface,
+                    style: IconButton.styleFrom(
+                      backgroundColor: DesignTokens.surface,
+                      disabledBackgroundColor: DesignTokens.surfaceContainer,
+                      side: const BorderSide(
+                        color: DesignTokens.outlineVariant,
+                        width: 1,
+                      ),
+                    ),
+                    tooltip: 'Kembali',
+                  ),
+                ),
+                const SizedBox(height: DesignTokens.spacing12),
+
                 // ── Logo ─────────────────────────────────
                 Container(
                   width: 96,
                   height: 96,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    border: Border.all(color: DesignTokens.outlineVariant, width: 1),
+                    border: Border.all(
+                        color: DesignTokens.outlineVariant, width: 1),
                     color: DesignTokens.surface,
                   ),
                   clipBehavior: Clip.hardEdge,
                   // ✅ FIX: Correct asset name (LogoAMBIS.png with capital L)
-                  child: Image.asset('assets/images/LogoAMBIS.png', fit: BoxFit.cover),
+                  child: Image.asset('assets/images/LogoAMBIS.png',
+                      fit: BoxFit.cover),
                 ),
                 const SizedBox(height: DesignTokens.spacing16),
 
@@ -124,7 +146,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   decoration: BoxDecoration(
                     color: DesignTokens.surface,
                     borderRadius: DesignTokens.radius16,
-                    border: Border.all(color: DesignTokens.outlineVariant, width: 1),
+                    border: Border.all(
+                        color: DesignTokens.outlineVariant, width: 1),
                     boxShadow: [DesignTokens.cardShadow],
                   ),
                   child: Column(
@@ -155,7 +178,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
                               // Password Field
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   const _FieldLabel('PASSWORD'),
                                   TextButton(
@@ -168,7 +192,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                         ),
                                         actions: [
                                           TextButton(
-                                            onPressed: () => Navigator.pop(context),
+                                            onPressed: () =>
+                                                Navigator.pop(context),
                                             child: const Text('OK'),
                                           ),
                                         ],
@@ -177,7 +202,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                     style: TextButton.styleFrom(
                                       padding: EdgeInsets.zero,
                                       minimumSize: Size.zero,
-                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                      tapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
                                     ),
                                     child: const Text(
                                       'Lupa Password?',
@@ -195,7 +221,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                     color: DesignTokens.hintText,
                                   ),
                                   prefixIcon: const Icon(Icons.lock_outline,
-                                      size: 20, color: DesignTokens.iconDefault),
+                                      size: 20,
+                                      color: DesignTokens.iconDefault),
                                   suffixIcon: IconButton(
                                     icon: Icon(
                                       _obscure
@@ -210,8 +237,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   filled: true,
                                   fillColor: DesignTokens.background,
                                   border: DesignTokens.inputBorder,
-                                  enabledBorder: DesignTokens.inputEnabledBorder,
-                                  focusedBorder: DesignTokens.inputFocusedBorder,
+                                  enabledBorder:
+                                      DesignTokens.inputEnabledBorder,
+                                  focusedBorder:
+                                      DesignTokens.inputFocusedBorder,
                                   errorBorder: DesignTokens.inputErrorBorder,
                                   focusedErrorBorder:
                                       DesignTokens.inputErrorFocusedBorder,
@@ -243,7 +272,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                             color: DesignTokens.onPrimary,
                                           ),
                                         )
-                                      : const Icon(Icons.login_rounded, size: 20),
+                                      : const Icon(Icons.login_rounded,
+                                          size: 20),
                                   label: Text(
                                     isLoading ? 'Memproses...' : 'Masuk',
                                     style: DesignTokens.buttonText,
@@ -271,69 +301,71 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           bottom: Radius.circular(16),
                         ),
                         child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: DesignTokens.spacing24,
-                          vertical: DesignTokens.spacing20,
-                        ),
-                        decoration: const BoxDecoration(
-                          color: DesignTokens.surfaceContainer,
-                          border: Border(
-                            top: BorderSide(color: DesignTokens.outlineVariant, width: 1),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: DesignTokens.spacing24,
+                            vertical: DesignTokens.spacing20,
+                          ),
+                          decoration: const BoxDecoration(
+                            color: DesignTokens.surfaceContainer,
+                            border: Border(
+                              top: BorderSide(
+                                  color: DesignTokens.outlineVariant, width: 1),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 40,
+                                height: 40,
+                                decoration: const BoxDecoration(
+                                  color: DesignTokens.cyanAccent,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.face_unlock_rounded,
+                                    size: 22, color: DesignTokens.primary),
+                              ),
+                              const SizedBox(width: DesignTokens.spacing12),
+                              const Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Presensi Wajah',
+                                      style: DesignTokens.caption,
+                                    ),
+                                    Text(
+                                      'Belum terdaftar?',
+                                      style: DesignTokens.smallText,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              // ✅ FIX BLUNDER #1: Layout — Expanded gives finite constraint in Row
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: () => context.go('/nisn-verify'),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: DesignTokens.primary,
+                                    side: const BorderSide(
+                                        color: DesignTokens.outlineVariant,
+                                        width: 1),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: DesignTokens.spacing16,
+                                      vertical: 10,
+                                    ),
+                                    shape: const RoundedRectangleBorder(
+                                      borderRadius: DesignTokens.radius8,
+                                    ),
+                                    textStyle: DesignTokens.smallText.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  child: const Text('Daftar Sekarang'),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 40,
-                              height: 40,
-                              decoration: const BoxDecoration(
-                                color: DesignTokens.cyanAccent,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(Icons.face_unlock_rounded,
-                                  size: 22, color: DesignTokens.primary),
-                            ),
-                            const SizedBox(width: DesignTokens.spacing12),
-                            const Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Presensi Wajah',
-                                    style: DesignTokens.caption,
-                                  ),
-                                  Text(
-                                    'Belum terdaftar?',
-                                    style: DesignTokens.smallText,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            // ✅ FIX BLUNDER #1: Layout — Expanded gives finite constraint in Row
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: () => context.go('/nisn-verify'),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: DesignTokens.primary,
-                                  side: const BorderSide(
-                                      color: DesignTokens.outlineVariant, width: 1),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: DesignTokens.spacing16,
-                                    vertical: 10,
-                                  ),
-                                  shape: const RoundedRectangleBorder(
-                                    borderRadius: DesignTokens.radius8,
-                                  ),
-                                  textStyle: DesignTokens.smallText.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                child: const Text('Daftar Sekarang'),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
                       ),
                     ],
                   ),
