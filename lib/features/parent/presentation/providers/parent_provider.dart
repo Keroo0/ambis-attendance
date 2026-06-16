@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../grades/data/repositories/grade_repository.dart';
 import '../../data/repositories/parent_repository.dart';
 
 /// Fetch child student info (name, nisn, class) for the logged-in parent.
@@ -20,6 +21,19 @@ final childGradesSummaryProvider =
       .read(parentRepositoryProvider)
       .getChildGradesSummary(child.studentId);
 });
+
+/// Fetch detailed child grades for the selected semester, matching the student
+/// grades screen data shape.
+final childGradesProvider =
+    FutureProvider.autoDispose.family<(List<SubjectGrade>, GradeSummary), int>(
+  (ref, semester) async {
+    final child = ref.watch(childInfoProvider).valueOrNull;
+    if (child == null) return (<SubjectGrade>[], GradeSummary.empty);
+    return ref
+        .read(gradeRepositoryProvider)
+        .getGradesFromSupabase(child.studentId, semester);
+  },
+);
 
 /// Fetch overall grade average for the child.
 final childOverallAverageProvider =

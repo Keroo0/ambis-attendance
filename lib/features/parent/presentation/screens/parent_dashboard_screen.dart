@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../data/repositories/parent_repository.dart';
 import '../providers/parent_provider.dart';
+import '../widgets/parent_bottom_nav.dart';
 
 class ParentDashboardScreen extends ConsumerWidget {
   const ParentDashboardScreen({super.key});
@@ -23,7 +24,8 @@ class ParentDashboardScreen extends ConsumerWidget {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: const Color(0xFFBA1A1A)),
+            style:
+                TextButton.styleFrom(foregroundColor: const Color(0xFFBA1A1A)),
             child: const Text('Keluar'),
           ),
         ],
@@ -41,6 +43,9 @@ class ParentDashboardScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F9FB),
+      bottomNavigationBar: const ParentBottomNav(
+        currentRoute: '/parent-dashboard',
+      ),
       appBar: AppBar(
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
@@ -78,8 +83,7 @@ class ParentDashboardScreen extends ConsumerWidget {
         ),
       ),
       body: childAsync.when(
-        loading: () =>
-            const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: CircularProgressIndicator()),
         error: (_, __) => Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -126,7 +130,7 @@ class ParentDashboardScreen extends ConsumerWidget {
                     Expanded(
                       child: _AttendanceCard(
                         countStr: attendanceStr,
-                        onTap: () => context.push('/parent-history'),
+                        onTap: () => context.go('/parent-history'),
                       )
                           .animate()
                           .fadeIn(delay: 160.ms, duration: 300.ms)
@@ -145,7 +149,10 @@ class ParentDashboardScreen extends ConsumerWidget {
               const SizedBox(height: 12),
 
               // Row 3: Grades summary (UTS + UAS)
-              _GradesSummaryCard(child: child)
+              _GradesSummaryCard(
+                child: child,
+                onOpenDetails: () => context.go('/parent-grades'),
+              )
                   .animate()
                   .fadeIn(delay: 300.ms, duration: 300.ms)
                   .slideY(begin: 0.08, end: 0, duration: 350.ms),
@@ -245,8 +252,7 @@ class _ProfileCard extends StatelessWidget {
                                 child: Text(
                                   'NISN: ${child.nisn}',
                                   style: const TextStyle(
-                                      fontSize: 11,
-                                      color: Color(0xFF43474F)),
+                                      fontSize: 11, color: Color(0xFF43474F)),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
@@ -285,9 +291,7 @@ class _AttendanceCard extends StatelessWidget {
           border: Border.all(color: const Color(0xFFC4C6D0)),
           boxShadow: const [
             BoxShadow(
-                color: Color(0x05000000),
-                blurRadius: 4,
-                offset: Offset(0, 2)),
+                color: Color(0x05000000), blurRadius: 4, offset: Offset(0, 2)),
           ],
         ),
         child: Row(
@@ -459,10 +463,21 @@ class _TodayDateChip extends StatelessWidget {
     final now = DateTime.now();
     final days = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
     final months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
-      'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'Mei',
+      'Jun',
+      'Jul',
+      'Ags',
+      'Sep',
+      'Okt',
+      'Nov',
+      'Des',
     ];
-    final label = '${days[now.weekday - 1]}, ${now.day} ${months[now.month - 1]}';
+    final label =
+        '${days[now.weekday - 1]}, ${now.day} ${months[now.month - 1]}';
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -501,17 +516,18 @@ class _AttendanceTimeChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: hasTime
-            ? color.withValues(alpha: 0.08)
-            : const Color(0xFFF7F9FB),
+        color:
+            hasTime ? color.withValues(alpha: 0.08) : const Color(0xFFF7F9FB),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: hasTime ? color.withValues(alpha: 0.3) : const Color(0xFFE0E3E5),
+          color:
+              hasTime ? color.withValues(alpha: 0.3) : const Color(0xFFE0E3E5),
         ),
       ),
       child: Row(
         children: [
-          Icon(icon, size: 16, color: hasTime ? color : const Color(0xFFC4C6D0)),
+          Icon(icon,
+              size: 16, color: hasTime ? color : const Color(0xFFC4C6D0)),
           const SizedBox(width: 6),
           Expanded(
             child: Column(
@@ -547,8 +563,13 @@ class _AttendanceTimeChip extends StatelessWidget {
 // ── Grades Summary Card ───────────────────────────────────────────────────────
 
 class _GradesSummaryCard extends ConsumerWidget {
-  const _GradesSummaryCard({required this.child});
+  const _GradesSummaryCard({
+    required this.child,
+    required this.onOpenDetails,
+  });
+
   final ChildStudentInfo child;
+  final VoidCallback onOpenDetails;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -561,99 +582,107 @@ class _GradesSummaryCard extends ConsumerWidget {
       error: (_, __) => '-',
     );
 
-    return Container(
-      clipBehavior: Clip.hardEdge,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFC4C6D0)),
-        boxShadow: const [
-          BoxShadow(
-              color: Color(0x05000000), blurRadius: 4, offset: Offset(0, 2)),
-        ],
-      ),
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(width: 4, color: const Color(0xFF47FBEB)),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Expanded(
-                          child: Text(
-                            'Ringkasan Nilai',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF191C1E),
-                            ),
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFECEEF0),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: const Text(
-                            'UTS + UAS',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF43474F),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(child: _AvgMiniCard(avgAsync: avgAsync)),
-                        const SizedBox(width: 8),
-                        Expanded(
-                            child: _AttendanceMiniCard(
-                                countStr: attendanceStr)),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    gradesAsync.when(
-                      loading: () => const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 20),
-                        child: Center(child: CircularProgressIndicator()),
-                      ),
-                      error: (_, __) => const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 12),
-                        child: Text('Gagal memuat nilai.',
-                            style: TextStyle(
-                                color: Colors.red, fontSize: 12)),
-                      ),
-                      data: (grades) => grades.isEmpty
-                          ? const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 16),
-                              child: Center(
-                                child: Text(
-                                  'Nilai belum diinput oleh admin.',
-                                  style: TextStyle(
-                                      color: Color(0xFF747780),
-                                      fontSize: 13),
-                                ),
+    return GestureDetector(
+      onTap: onOpenDetails,
+      child: Container(
+        clipBehavior: Clip.hardEdge,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFC4C6D0)),
+          boxShadow: const [
+            BoxShadow(
+                color: Color(0x05000000), blurRadius: 4, offset: Offset(0, 2)),
+          ],
+        ),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(width: 4, color: const Color(0xFF47FBEB)),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              'Ringkasan Nilai',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF191C1E),
                               ),
-                            )
-                          : _GradeTable(grades: grades),
-                    ),
-                  ],
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFECEEF0),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: const Text(
+                              'UTS + UAS',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF43474F),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          const Icon(
+                            Icons.arrow_forward_ios_rounded,
+                            size: 14,
+                            color: Color(0xFF006A63),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(child: _AvgMiniCard(avgAsync: avgAsync)),
+                          const SizedBox(width: 8),
+                          Expanded(
+                              child:
+                                  _AttendanceMiniCard(countStr: attendanceStr)),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      gradesAsync.when(
+                        loading: () => const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 20),
+                          child: Center(child: CircularProgressIndicator()),
+                        ),
+                        error: (_, __) => const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 12),
+                          child: Text('Gagal memuat nilai.',
+                              style:
+                                  TextStyle(color: Colors.red, fontSize: 12)),
+                        ),
+                        data: (grades) => grades.isEmpty
+                            ? const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 16),
+                                child: Center(
+                                  child: Text(
+                                    'Nilai belum diinput oleh admin.',
+                                    style: TextStyle(
+                                        color: Color(0xFF747780), fontSize: 13),
+                                  ),
+                                ),
+                              )
+                            : _GradeTable(grades: grades),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -960,8 +989,7 @@ class _LeaveRequestsCard extends ConsumerWidget {
                         child: Center(child: CircularProgressIndicator()),
                       ),
                       error: (_, __) => const Text('Gagal memuat data.',
-                          style:
-                              TextStyle(color: Colors.red, fontSize: 12)),
+                          style: TextStyle(color: Colors.red, fontSize: 12)),
                       data: (leaves) => leaves.isEmpty
                           ? const Padding(
                               padding: EdgeInsets.symmetric(vertical: 12),
@@ -969,8 +997,7 @@ class _LeaveRequestsCard extends ConsumerWidget {
                                 child: Text(
                                   'Belum ada pengajuan izin.',
                                   style: TextStyle(
-                                      color: Color(0xFF747780),
-                                      fontSize: 13),
+                                      color: Color(0xFF747780), fontSize: 13),
                                 ),
                               ),
                             )

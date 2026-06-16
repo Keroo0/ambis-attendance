@@ -17,6 +17,7 @@ import '../../features/leave_request/presentation/screens/leave_request_screen.d
 import '../../features/notifications/presentation/screens/notifications_screen.dart';
 import '../../features/parent/presentation/screens/parent_attendance_history_screen.dart';
 import '../../features/parent/presentation/screens/parent_dashboard_screen.dart';
+import '../../features/parent/presentation/screens/parent_grades_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../shared/widgets/app_shell.dart';
 
@@ -99,6 +100,10 @@ GoRouter buildRouter(Ref ref) {
         path: '/parent-history',
         builder: (_, __) => const ParentAttendanceHistoryScreen(),
       ),
+      GoRoute(
+        path: '/parent-grades',
+        builder: (_, __) => const ParentGradesScreen(),
+      ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
             AppShell(navigationShell: navigationShell),
@@ -145,7 +150,12 @@ GoRouter buildRouter(Ref ref) {
       final loggedIn = user != null;
 
       if (!loggedIn) {
-        const guestRoutes = {'/welcome', '/login', '/parent-login', '/nisn-verify'};
+        const guestRoutes = {
+          '/welcome',
+          '/login',
+          '/parent-login',
+          '/nisn-verify'
+        };
         if (guestRoutes.contains(loc) || loc.startsWith('/enroll-face/')) {
           return null;
         }
@@ -154,9 +164,16 @@ GoRouter buildRouter(Ref ref) {
 
       if (user.role == 'ortu') {
         const authOnlyRoutes = {
-          '/login', '/splash', '/welcome', '/parent-login', '/nisn-verify',
+          '/login',
+          '/splash',
+          '/welcome',
+          '/parent-login',
+          '/nisn-verify',
         };
         if (authOnlyRoutes.contains(loc)) return '/parent-dashboard';
+        if (loc == '/grades') return '/parent-grades';
+        if (loc == '/history') return '/parent-history';
+        if (loc == '/dashboard') return '/parent-dashboard';
         if (loc == '/enrollment' || loc.startsWith('/enroll-face/')) {
           return '/parent-dashboard';
         }
@@ -164,13 +181,25 @@ GoRouter buildRouter(Ref ref) {
       }
 
       if (user.role != 'siswa') {
-        const authOnlyRoutes = {'/login', '/splash', '/welcome', '/parent-login', '/nisn-verify'};
+        const authOnlyRoutes = {
+          '/login',
+          '/splash',
+          '/welcome',
+          '/parent-login',
+          '/nisn-verify'
+        };
         if (authOnlyRoutes.contains(loc)) return '/dashboard';
         return null;
       }
 
       // Logged-in siswa should not be on guest/public routes
-      const guestRoutes = {'/login', '/splash', '/welcome', '/parent-login', '/nisn-verify'};
+      const guestRoutes = {
+        '/login',
+        '/splash',
+        '/welcome',
+        '/parent-login',
+        '/nisn-verify'
+      };
       if (guestRoutes.contains(loc)) {
         return '/dashboard';
       }

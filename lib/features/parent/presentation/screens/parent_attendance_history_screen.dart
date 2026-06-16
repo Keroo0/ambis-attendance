@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../providers/parent_provider.dart';
 import '../../data/repositories/parent_repository.dart';
+import '../widgets/parent_bottom_nav.dart';
 
 class ParentAttendanceHistoryScreen extends ConsumerStatefulWidget {
   const ParentAttendanceHistoryScreen({super.key});
@@ -16,8 +16,18 @@ class _State extends ConsumerState<ParentAttendanceHistoryScreen> {
   int _selectedMonth = 0;
 
   static const _monthNames = [
-    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+    'Januari',
+    'Februari',
+    'Maret',
+    'April',
+    'Mei',
+    'Juni',
+    'Juli',
+    'Agustus',
+    'September',
+    'Oktober',
+    'November',
+    'Desember',
   ];
 
   static List<String> _buildMonths() {
@@ -47,17 +57,16 @@ class _State extends ConsumerState<ParentAttendanceHistoryScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F9FB),
+      bottomNavigationBar: const ParentBottomNav(
+        currentRoute: '/parent-history',
+      ),
       appBar: AppBar(
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 1,
         centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
-          color: const Color(0xFF002B5B),
-          onPressed: () => context.pop(),
-        ),
+        automaticallyImplyLeading: false,
         title: const Text(
           'Riwayat Absensi',
           style: TextStyle(
@@ -151,9 +160,7 @@ class _StudentSummaryCard extends StatelessWidget {
         border: Border.all(color: const Color(0xFFC4C6D0)),
         boxShadow: const [
           BoxShadow(
-              color: Color(0x05000000),
-              blurRadius: 16,
-              offset: Offset(0, 4)),
+              color: Color(0x05000000), blurRadius: 16, offset: Offset(0, 4)),
         ],
       ),
       child: IntrinsicHeight(
@@ -336,8 +343,7 @@ class _MonthFilterBar extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
-                    color:
-                        selected ? Colors.white : const Color(0xFF43474F),
+                    color: selected ? Colors.white : const Color(0xFF43474F),
                   ),
                 ),
               ),
@@ -450,8 +456,18 @@ class _AttendanceDayTile extends StatelessWidget {
   final ParentAttendanceDay day;
 
   static const _monthShort = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
-    'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'Mei',
+    'Jun',
+    'Jul',
+    'Agu',
+    'Sep',
+    'Okt',
+    'Nov',
+    'Des',
   ];
 
   static const _dayNames = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
@@ -470,9 +486,8 @@ class _AttendanceDayTile extends StatelessWidget {
       case ParentAttendanceStatus.hadir:
         color = const Color(0xFF16A34A);
         label = 'Hadir';
-        detail = day.timeIn != null
-            ? 'Masuk ${_formatTime(day.timeIn!)}'
-            : 'Hadir';
+        detail =
+            day.timeIn != null ? 'Masuk ${_formatTime(day.timeIn!)}' : 'Hadir';
       case ParentAttendanceStatus.terlambat:
         color = const Color(0xFFEA580C);
         label = 'Terlambat';
@@ -519,15 +534,13 @@ class _AttendanceDayTile extends StatelessWidget {
           Expanded(
             child: Text(
               detail,
-              style:
-                  const TextStyle(fontSize: 13, color: Color(0xFF191C1E)),
+              style: const TextStyle(fontSize: 13, color: Color(0xFF191C1E)),
               overflow: TextOverflow.ellipsis,
             ),
           ),
           const SizedBox(width: 8),
           Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(8),
@@ -535,9 +548,7 @@ class _AttendanceDayTile extends StatelessWidget {
             child: Text(
               label,
               style: TextStyle(
-                  color: color,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600),
+                  color: color, fontSize: 11, fontWeight: FontWeight.w600),
             ),
           ),
         ],
@@ -591,8 +602,7 @@ class _LegendDot extends StatelessWidget {
         ),
         const SizedBox(width: 4),
         Text(label,
-            style: const TextStyle(
-                color: Color(0xFF43474F), fontSize: 11)),
+            style: const TextStyle(color: Color(0xFF43474F), fontSize: 11)),
       ],
     );
   }
