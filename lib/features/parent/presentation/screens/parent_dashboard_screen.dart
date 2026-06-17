@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../notifications/data/models/notification_model.dart';
+import '../../../notifications/presentation/providers/notifications_provider.dart';
 import '../../data/repositories/parent_repository.dart';
 import '../providers/parent_provider.dart';
 import '../widgets/parent_bottom_nav.dart';
@@ -53,17 +55,21 @@ class ParentDashboardScreen extends ConsumerWidget {
         scrolledUnderElevation: 1,
         titleSpacing: 0,
         title: const Padding(
-          padding: EdgeInsets.only(left: 16),
+          padding: EdgeInsets.only(left: 16, right: 4),
           child: Row(
             children: [
               Icon(Icons.school_rounded, color: Color(0xFF002B5B), size: 24),
               SizedBox(width: 10),
-              Text(
-                'SMAN 07 Kab. Tangerang',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF002B5B),
+              Expanded(
+                child: Text(
+                  'SMAN 07 Kab. Tangerang',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF002B5B),
+                  ),
                 ),
               ),
             ],
@@ -148,25 +154,249 @@ class ParentDashboardScreen extends ConsumerWidget {
                   .slideY(begin: 0.08, end: 0, duration: 350.ms),
               const SizedBox(height: 12),
 
-              // Row 3: Grades summary (UTS + UAS)
+              // Row 3: Teacher announcements
+              _AnnouncementsCard(
+                onOpenAll: () => context.push('/notifications'),
+              )
+                  .animate()
+                  .fadeIn(delay: 280.ms, duration: 300.ms)
+                  .slideY(begin: 0.08, end: 0, duration: 350.ms),
+              const SizedBox(height: 12),
+
+              // Row 4: Grades summary (UTS + UAS)
               _GradesSummaryCard(
                 child: child,
                 onOpenDetails: () => context.go('/parent-grades'),
               )
                   .animate()
-                  .fadeIn(delay: 300.ms, duration: 300.ms)
+                  .fadeIn(delay: 340.ms, duration: 300.ms)
                   .slideY(begin: 0.08, end: 0, duration: 350.ms),
               const SizedBox(height: 12),
 
-              // Row 4: Leave requests
+              // Row 5: Leave requests
               _LeaveRequestsCard(child: child)
                   .animate()
-                  .fadeIn(delay: 380.ms, duration: 300.ms)
+                  .fadeIn(delay: 420.ms, duration: 300.ms)
                   .slideY(begin: 0.08, end: 0, duration: 350.ms),
             ],
           );
         },
       ),
+    );
+  }
+}
+
+// ── Announcements Card ───────────────────────────────────────────────────────
+
+class _AnnouncementsCard extends ConsumerWidget {
+  const _AnnouncementsCard({required this.onOpenAll});
+
+  final VoidCallback onOpenAll;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final notificationsAsync = ref.watch(notificationsProvider);
+
+    return Container(
+      clipBehavior: Clip.hardEdge,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFC4C6D0)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x05000000),
+            blurRadius: 4,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(width: 4, color: const Color(0xFFD97706)),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFF7ED),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.campaign_outlined,
+                            size: 18,
+                            color: Color(0xFFD97706),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        const Expanded(
+                          child: Text(
+                            'Pengumuman Guru',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF191C1E),
+                            ),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: onOpenAll,
+                          style: TextButton.styleFrom(
+                            foregroundColor: const Color(0xFF006A63),
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            minimumSize: const Size(0, 32),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: const Text(
+                            'Lihat Semua',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    notificationsAsync.when(
+                      loading: () => const SizedBox(
+                        height: 42,
+                        child: Center(
+                          child: SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        ),
+                      ),
+                      error: (_, __) => const Text(
+                        'Gagal memuat pengumuman.',
+                        style: TextStyle(color: Colors.red, fontSize: 12),
+                      ),
+                      data: (notifications) {
+                        final announcements = notifications
+                            .where((n) =>
+                                n.type == AppNotificationType.announcement)
+                            .take(2)
+                            .toList();
+
+                        if (announcements.isEmpty) {
+                          return const Text(
+                            'Belum ada pengumuman terbaru.',
+                            style: TextStyle(
+                              color: Color(0xFF747780),
+                              fontSize: 12,
+                            ),
+                          );
+                        }
+
+                        return Column(
+                          children: [
+                            for (int i = 0; i < announcements.length; i++) ...[
+                              _AnnouncementPreview(
+                                notification: announcements[i],
+                              ),
+                              if (i != announcements.length - 1)
+                                const Divider(
+                                  height: 16,
+                                  color: Color(0xFFECEEF0),
+                                ),
+                            ],
+                          ],
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AnnouncementPreview extends StatelessWidget {
+  const _AnnouncementPreview({required this.notification});
+
+  final AppNotification notification;
+
+  String _timeAgo(DateTime time) {
+    final now = DateTime.now();
+    final diff = now.difference(time);
+    if (diff.inMinutes < 60) return '${diff.inMinutes} menit lalu';
+    if (diff.inHours < 24) return '${diff.inHours} jam lalu';
+    if (diff.inDays < 7) return '${diff.inDays} hari lalu';
+    final weeks = (diff.inDays / 7).floor();
+    if (weeks < 4) return '$weeks minggu lalu';
+    final months = (diff.inDays / 30).floor();
+    return '$months bulan lalu';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          margin: const EdgeInsets.only(top: 6),
+          decoration: BoxDecoration(
+            color: notification.isRead
+                ? const Color(0xFFC4C6D0)
+                : const Color(0xFFD97706),
+            shape: BoxShape.circle,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                notification.title,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF191C1E),
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                notification.body,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFF43474F),
+                  height: 1.35,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                _timeAgo(notification.createdAt),
+                style: const TextStyle(
+                  fontSize: 10,
+                  color: Color(0xFF747780),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -340,12 +570,16 @@ class _AttendanceCard extends StatelessWidget {
                             Icon(Icons.arrow_forward_ios_rounded,
                                 size: 10, color: Color(0xFF006A63)),
                             SizedBox(width: 3),
-                            Text(
-                              'Lihat Riwayat',
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: Color(0xFF006A63),
-                                fontWeight: FontWeight.w600,
+                            Expanded(
+                              child: Text(
+                                'Riwayat',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Color(0xFF006A63),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ],
