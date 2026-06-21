@@ -71,48 +71,62 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final hasFace = ref.watch(_hasFaceDataProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F9FB),
+      backgroundColor: const Color(0xFFEFF6FF),
       body: SafeArea(
-        child: Column(
-          children: [
-            _TopBar(nisn: user?.nisn),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
-                children: [
-                  _GreetingSection(
-                    name: user?.fullname.split(' ').first ?? 'Siswa',
-                  ).animate().fadeIn(delay: 50.ms, duration: 300.ms),
-                  if (hasFace.valueOrNull == false) ...[
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFFEAF4FF),
+                Color(0xFFF7F9FB),
+                Color(0xFFFFFFFF),
+              ],
+              stops: [0, 0.46, 1],
+            ),
+          ),
+          child: Column(
+            children: [
+              _TopBar(nisn: user?.nisn),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
+                  children: [
+                    _GreetingSection(
+                      name: user?.fullname.split(' ').first ?? 'Siswa',
+                    ).animate().fadeIn(delay: 50.ms, duration: 300.ms),
+                    if (hasFace.valueOrNull == false) ...[
+                      const SizedBox(height: 12),
+                      const _FaceWarningBanner()
+                          .animate()
+                          .fadeIn(delay: 80.ms, duration: 300.ms)
+                          .slideY(begin: 0.08, end: 0, duration: 350.ms),
+                    ],
                     const SizedBox(height: 12),
-                    const _FaceWarningBanner()
+                    _AttendanceStatusCard(attendance: todayAtt)
                         .animate()
-                        .fadeIn(delay: 80.ms, duration: 300.ms)
+                        .fadeIn(delay: 100.ms, duration: 300.ms)
+                        .slideY(begin: 0.08, end: 0, duration: 350.ms),
+                    const SizedBox(height: 14),
+                    _QuickActionsGrid(
+                      onAbsensi: () => context.go('/attendance'),
+                      onNilai: () => context.go('/grades'),
+                      onIzin: () => context.push('/leave'),
+                    )
+                        .animate()
+                        .fadeIn(delay: 150.ms, duration: 300.ms)
+                        .slideY(begin: 0.08, end: 0, duration: 350.ms),
+                    const SizedBox(height: 22),
+                    _RiwayatSection(recent: recentAtt)
+                        .animate()
+                        .fadeIn(delay: 200.ms, duration: 300.ms)
                         .slideY(begin: 0.08, end: 0, duration: 350.ms),
                   ],
-                  const SizedBox(height: 16),
-                  _AttendanceStatusCard(attendance: todayAtt)
-                      .animate()
-                      .fadeIn(delay: 100.ms, duration: 300.ms)
-                      .slideY(begin: 0.08, end: 0, duration: 350.ms),
-                  const SizedBox(height: 16),
-                  _QuickActionsGrid(
-                    onAbsensi: () => context.go('/attendance'),
-                    onNilai: () => context.go('/grades'),
-                    onIzin: () => context.push('/leave'),
-                  )
-                      .animate()
-                      .fadeIn(delay: 150.ms, duration: 300.ms)
-                      .slideY(begin: 0.08, end: 0, duration: 350.ms),
-                  const SizedBox(height: 24),
-                  _RiwayatSection(recent: recentAtt)
-                      .animate()
-                      .fadeIn(delay: 200.ms, duration: 300.ms)
-                      .slideY(begin: 0.08, end: 0, duration: 350.ms),
-                ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -262,23 +276,113 @@ class _GreetingSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Halo, $name!',
-          style: const TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF191C1E),
+    return Container(
+      height: 148,
+      clipBehavior: Clip.hardEdge,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF002B5B),
+            Color(0xFF006A63),
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF002B5B).withAlpha(45),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
           ),
-        ),
-        const SizedBox(height: 4),
-        const Text(
-          'Semangat belajar hari ini.',
-          style: TextStyle(fontSize: 14, color: Color(0xFF43474F)),
-        ),
-      ],
+        ],
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            right: -34,
+            top: -38,
+            child: Container(
+              width: 132,
+              height: 132,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withAlpha(28),
+              ),
+            ),
+          ),
+          Positioned(
+            right: 28,
+            bottom: -24,
+            child: Container(
+              width: 88,
+              height: 88,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFFFFDF9E).withAlpha(80),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withAlpha(34),
+                    borderRadius: BorderRadius.circular(100),
+                    border: Border.all(color: Colors.white.withAlpha(42)),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.auto_awesome_rounded,
+                        color: Color(0xFFFFDF9E),
+                        size: 15,
+                      ),
+                      SizedBox(width: 6),
+                      Text(
+                        'Portal Siswa',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  'Halo, $name!',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Semangat belajar hari ini. Cek absensi, nilai, dan izinmu di sini.',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    height: 1.35,
+                    color: Colors.white.withAlpha(220),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -362,8 +466,15 @@ class _AttendanceStatusCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFC4C6D0).withAlpha(80)),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFBFE8E3)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF006A63).withAlpha(18),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       child: IntrinsicHeight(
         child: Row(
@@ -372,7 +483,11 @@ class _AttendanceStatusCard extends StatelessWidget {
             Container(
               width: 4,
               decoration: BoxDecoration(
-                color: const Color(0xFF006A63),
+                gradient: const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFF00DECF), Color(0xFF006A63)],
+                ),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -410,9 +525,20 @@ class _AttendanceStatusCard extends StatelessWidget {
             Container(
               width: 48,
               height: 48,
-              decoration: const BoxDecoration(
-                color: Color(0xFF47FBEB),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFF47FBEB), Color(0xFFFFDF9E)],
+                ),
                 shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF00DECF).withAlpha(55),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
               child: const Icon(
                 Icons.how_to_reg_rounded,
@@ -436,7 +562,10 @@ class _AttendanceInfo extends StatelessWidget {
     if (attendance == null) {
       return const Row(
         children: [
-          _StatusBadge(label: 'Belum Absen', color: Color(0xFFECEEF0), textColor: Color(0xFF43474F)),
+          _StatusBadge(
+              label: 'Belum Absen',
+              color: Color(0xFFECEEF0),
+              textColor: Color(0xFF43474F)),
           SizedBox(width: 8),
           Flexible(
             child: Text(
@@ -450,9 +579,7 @@ class _AttendanceInfo extends StatelessWidget {
     final status = attendance!['status'] as String? ?? '';
     final timeIn = attendance!['time_in'] as String?;
     final (label, color, textColor) = _statusStyle(status);
-    final timeStr = timeIn != null
-        ? 'Masuk ${_formatTime(timeIn)} WIB'
-        : null;
+    final timeStr = timeIn != null ? 'Masuk ${_formatTime(timeIn)} WIB' : null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -475,7 +602,11 @@ class _AttendanceInfo extends StatelessWidget {
         'absent' => ('Tidak Hadir', const Color(0xFFBA1A1A), Colors.white),
         'leave' => ('Izin', const Color(0xFF1D4ED8), Colors.white),
         'sick' => ('Sakit', const Color(0xFF7C3AED), Colors.white),
-        _ => ('Tidak Diketahui', const Color(0xFFECEEF0), const Color(0xFF43474F)),
+        _ => (
+            'Tidak Diketahui',
+            const Color(0xFFECEEF0),
+            const Color(0xFF43474F)
+          ),
       };
 }
 
@@ -527,28 +658,40 @@ class _QuickActionsGrid extends StatelessWidget {
       children: [
         // Absensi — primary dark
         Expanded(
-          child: _PrimaryActionTile(
+          child: _ActionTile(
             icon: Icons.fingerprint_rounded,
             label: 'Absensi',
             onTap: onAbsensi,
+            backgroundColor: const Color(0xFF001736),
+            iconColor: Colors.white,
+            textColor: Colors.white,
+            glowColor: const Color(0xFF001736),
           ),
         ),
         const SizedBox(width: 12),
         // Nilai — outlined
         Expanded(
-          child: _SecondaryActionTile(
+          child: _ActionTile(
             icon: Icons.bar_chart_rounded,
             label: 'Nilai',
             onTap: onNilai,
+            backgroundColor: const Color(0xFFEAF4FF),
+            iconColor: const Color(0xFF1D4ED8),
+            textColor: const Color(0xFF12305F),
+            borderColor: const Color(0xFFBFDBFE),
           ),
         ),
         const SizedBox(width: 12),
         // Izin — outlined
         Expanded(
-          child: _SecondaryActionTile(
+          child: _ActionTile(
             icon: Icons.description_outlined,
             label: 'Izin & Sakit',
             onTap: onIzin,
+            backgroundColor: const Color(0xFFFFF7ED),
+            iconColor: const Color(0xFFEA580C),
+            textColor: const Color(0xFF5B4300),
+            borderColor: const Color(0xFFFFDF9E),
           ),
         ),
       ],
@@ -556,15 +699,25 @@ class _QuickActionsGrid extends StatelessWidget {
   }
 }
 
-class _PrimaryActionTile extends StatelessWidget {
-  const _PrimaryActionTile({
+class _ActionTile extends StatelessWidget {
+  const _ActionTile({
     required this.icon,
     required this.label,
     required this.onTap,
+    required this.backgroundColor,
+    required this.iconColor,
+    required this.textColor,
+    this.borderColor,
+    this.glowColor,
   });
   final IconData icon;
   final String label;
   final VoidCallback onTap;
+  final Color backgroundColor;
+  final Color iconColor;
+  final Color textColor;
+  final Color? borderColor;
+  final Color? glowColor;
 
   @override
   Widget build(BuildContext context) {
@@ -573,69 +726,32 @@ class _PrimaryActionTile extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
         decoration: BoxDecoration(
-          color: const Color(0xFF001736),
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF001736).withAlpha(60),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
+          color: backgroundColor,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: borderColor ?? backgroundColor.withAlpha(180),
+          ),
+          boxShadow: glowColor == null
+              ? null
+              : [
+                  BoxShadow(
+                    color: glowColor!.withAlpha(52),
+                    blurRadius: 14,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: Colors.white, size: 28),
+            Icon(icon, color: iconColor, size: 28),
             const SizedBox(height: 8),
             Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SecondaryActionTile extends StatelessWidget {
-  const _SecondaryActionTile({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFC4C6D0).withAlpha(130)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: const Color(0xFF006A63), size: 28),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF191C1E),
+                fontWeight: FontWeight.w700,
+                color: textColor,
               ),
               textAlign: TextAlign.center,
             ),
@@ -686,10 +802,10 @@ class _RiwayatSection extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
+                  color: const Color(0xFFEAF4FF),
+                  borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: const Color(0xFFC4C6D0).withAlpha(80),
+                    color: const Color(0xFFBFDBFE),
                   ),
                 ),
                 child: const Column(
@@ -697,7 +813,7 @@ class _RiwayatSection extends StatelessWidget {
                     Icon(
                       Icons.history_rounded,
                       size: 40,
-                      color: Color(0xFFC4C6D0),
+                      color: Color(0xFF1D4ED8),
                     ),
                     SizedBox(height: 8),
                     Text(
@@ -801,7 +917,8 @@ class _AttendanceHistoryCard extends StatelessWidget {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                 decoration: BoxDecoration(
                   color: badgeBg,
                   borderRadius: BorderRadius.circular(100),
@@ -929,11 +1046,29 @@ String _formatTime(String timeStr) {
 
 String _formatDate(String dateStr) {
   const days = [
-    '', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu',
+    '',
+    'Senin',
+    'Selasa',
+    'Rabu',
+    'Kamis',
+    'Jumat',
+    'Sabtu',
+    'Minggu',
   ];
   const months = [
-    '', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+    '',
+    'Januari',
+    'Februari',
+    'Maret',
+    'April',
+    'Mei',
+    'Juni',
+    'Juli',
+    'Agustus',
+    'September',
+    'Oktober',
+    'November',
+    'Desember',
   ];
   try {
     final d = DateTime.parse(dateStr);

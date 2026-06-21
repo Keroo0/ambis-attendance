@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:math' as math;
 
 import 'package:ambis_attendance/core/constants/app_constants.dart';
 import 'package:ambis_attendance/core/services/location_service.dart';
@@ -9,10 +10,10 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   group('FaceRepository.cosineSimilarity', () {
     test('identical L2-normalised vectors → 1.0', () {
+      final norm = math.sqrt(AppConstants.embeddingSize);
       final a = Float32List.fromList(
-        List.generate(AppConstants.embeddingSize, (i) => 1 / 11.31371),
+        List.generate(AppConstants.embeddingSize, (i) => 1 / norm),
       );
-      // L2 norm of 128 ones is sqrt(128) ≈ 11.31371; normalised → ~1.0 dot.
       expect(
         FaceRepository.cosineSimilarity(a, a),
         closeTo(1.0, 1e-3),
@@ -37,8 +38,7 @@ void main() {
     });
 
     test('~111 km per degree of latitude', () {
-      final d =
-          LocationService.haversineMeters(0, 0, 1, 0); // 1° lat ≈ 111 km
+      final d = LocationService.haversineMeters(0, 0, 1, 0); // 1° lat ≈ 111 km
       expect(d, greaterThan(110000));
       expect(d, lessThan(112000));
     });

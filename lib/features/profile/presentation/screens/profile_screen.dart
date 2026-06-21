@@ -1,7 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -46,7 +44,8 @@ final _profileStudentProvider =
   try {
     final row = await sb.Supabase.instance.client
         .from('students')
-        .select('id, nisn, class, parent_id, date_of_birth, gender, address, phone_parent, created_at, updated_at')
+        .select(
+            'id, nisn, class, parent_id, date_of_birth, gender, address, phone_parent, created_at, updated_at')
         .eq('id', user.id)
         .maybeSingle();
     return row;
@@ -263,7 +262,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     style: TextStyle(fontSize: 13, color: Color(0xFF747780)),
                   ),
                   const SizedBox(height: 20),
-
                   _PasswordField(
                     controller: oldPassCtrl,
                     label: 'Password Lama',
@@ -275,7 +273,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   const SizedBox(height: 16),
                   const Divider(height: 1, color: Color(0xFFE8EAED)),
                   const SizedBox(height: 16),
-
                   _PasswordField(
                     controller: newPassCtrl,
                     label: 'Password Baru',
@@ -285,7 +282,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         setSheetState(() => obscureNew = !obscureNew),
                   ),
                   const SizedBox(height: 12),
-
                   _PasswordField(
                     controller: confirmCtrl,
                     label: 'Konfirmasi Password Baru',
@@ -294,7 +290,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     onToggle: () =>
                         setSheetState(() => obscureConfirm = !obscureConfirm),
                   ),
-
                   if (errorMsg != null) ...[
                     const SizedBox(height: 8),
                     Text(
@@ -305,7 +300,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       ),
                     ),
                   ],
-
                   const SizedBox(height: 20),
                   SizedBox(
                     width: double.infinity,
@@ -318,8 +312,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               final cp = confirmCtrl.text.trim();
 
                               if (op.isEmpty) {
-                                setSheetState(() =>
-                                    errorMsg = 'Masukkan password lama');
+                                setSheetState(
+                                    () => errorMsg = 'Masukkan password lama');
                                 return;
                               }
                               if (np.length < 6) {
@@ -335,18 +329,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
                               setSheetState(() => loading = true);
                               try {
-                                final user =
-                                    ref.read(authProvider).valueOrNull;
+                                final user = ref.read(authProvider).valueOrNull;
                                 if (user == null) {
                                   setSheetState(() {
-                                    errorMsg = 'Sesi berakhir, silakan login ulang.';
+                                    errorMsg =
+                                        'Sesi berakhir, silakan login ulang.';
                                     loading = false;
                                   });
                                   return;
                                 }
 
-                                final email =
-                                    '${user.nisn}@sman07.local';
+                                final email = '${user.nisn}@sman07.local';
                                 await sb.Supabase.instance.client.auth
                                     .signInWithPassword(
                                   email: email,
@@ -466,7 +459,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   _PengaturanCard(
                     onNotifikasi: () => context.push('/notifications'),
                     onUbahPassword: _showChangePasswordSheet,
-                    onBantuan: () => _showBantuanDialog(context),
                   ),
                   const SizedBox(height: 24),
                   _LogoutButton(
@@ -516,87 +508,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       if (context.mounted) context.go('/login');
     }
   }
-
-  Future<void> _openWhatsApp(BuildContext context, String phone) async {
-    final waUri = Uri.parse('whatsapp://send?phone=$phone');
-    final webUri = Uri.parse('https://wa.me/$phone');
-
-    // Bungkus dalam try-catch: canLaunchUrl/launchUrl bisa melempar
-    // PlatformException (mis. scheme tidak queryable) yang kalau tidak
-    // ditangkap menyebabkan layar error hitam/abu-abu.
-    try {
-      if (await canLaunchUrl(waUri)) {
-        await launchUrl(waUri, mode: LaunchMode.externalApplication);
-        return;
-      }
-      if (await canLaunchUrl(webUri)) {
-        await launchUrl(webUri, mode: LaunchMode.externalApplication);
-        return;
-      }
-    } catch (_) {
-      // Lanjut ke dialog manual di bawah.
-    }
-
-    if (!context.mounted) return;
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('WhatsApp Tidak Terinstall'),
-        content: Text(
-          'Hubungi Admin IT melalui nomor berikut:\n\n'
-          '$phone\n\n'
-          'Silakan salin nomor ini dan buka WhatsApp secara manual.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Clipboard.setData(ClipboardData(text: phone));
-              Navigator.of(ctx).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Nomor berhasil disalin')),
-              );
-            },
-            child: const Text('Salin Nomor'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Tutup'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showBantuanDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Bantuan & Layanan IT'),
-        content: const Text(
-          'Untuk kendala teknis, hubungi:\n\n'
-          'Admin IT SMAN 07 Kab. Tangerang\n'
-          'WhatsApp: 088297910157\n'
-          'Jam kerja: Senin–Jumat, 07.00–15.00 WIB',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Tutup'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await _openWhatsApp(context, '6288297910157');
-            },
-            style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFF006A63),
-            ),
-            child: const Text('Chat WhatsApp'),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 // ── Password Field Helper ─────────────────────────────────────────────────────
@@ -639,7 +550,9 @@ class _PasswordField extends StatelessWidget {
             hintStyle: const TextStyle(color: Color(0xFFB0B3BB), fontSize: 14),
             suffixIcon: IconButton(
               icon: Icon(
-                obscure ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                obscure
+                    ? Icons.visibility_off_rounded
+                    : Icons.visibility_rounded,
                 size: 20,
                 color: const Color(0xFF747780),
               ),
@@ -1054,9 +967,8 @@ class _DataAkademikSection extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
-                            color: isLulus!
-                                ? const Color(0xFF006A63)
-                                : Colors.red,
+                            color:
+                                isLulus! ? const Color(0xFF006A63) : Colors.red,
                           ),
                         ),
                       ),
@@ -1087,7 +999,8 @@ class _AkademikCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFC4C6D0).withValues(alpha: 0.6)),
+        border:
+            Border.all(color: const Color(0xFFC4C6D0).withValues(alpha: 0.6)),
         boxShadow: const [
           BoxShadow(
             color: Color(0x08000000),
@@ -1103,35 +1016,35 @@ class _AkademikCard extends StatelessWidget {
             Container(width: 4, color: AppColors.secondary),
             Expanded(
               child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: const TextStyle(
-                      color: Color(0xFF747780),
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.8,
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: const TextStyle(
+                        color: Color(0xFF747780),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.8,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                  if (icon != null) ...[
-                    Row(
-                      children: [
-                        Icon(icon, color: AppColors.secondary, size: 18),
-                        const SizedBox(width: 6),
-                        Expanded(child: child),
-                      ],
-                    ),
-                  ] else
-                    child,
-                ],
+                    const SizedBox(height: 6),
+                    if (icon != null) ...[
+                      Row(
+                        children: [
+                          Icon(icon, color: AppColors.secondary, size: 18),
+                          const SizedBox(width: 6),
+                          Expanded(child: child),
+                        ],
+                      ),
+                    ] else
+                      child,
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
         ),
       ),
     );
@@ -1144,12 +1057,10 @@ class _PengaturanCard extends StatelessWidget {
   const _PengaturanCard({
     required this.onNotifikasi,
     required this.onUbahPassword,
-    required this.onBantuan,
   });
 
   final VoidCallback onNotifikasi;
   final VoidCallback onUbahPassword;
-  final VoidCallback onBantuan;
 
   @override
   Widget build(BuildContext context) {
@@ -1157,7 +1068,8 @@ class _PengaturanCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFC4C6D0).withValues(alpha: 0.6)),
+        border:
+            Border.all(color: const Color(0xFFC4C6D0).withValues(alpha: 0.6)),
         boxShadow: const [
           BoxShadow(
             color: Color(0x08000000),
@@ -1179,12 +1091,6 @@ class _PengaturanCard extends StatelessWidget {
             icon: Icons.notifications_active_rounded,
             label: 'Pengaturan Notifikasi',
             onTap: onNotifikasi,
-          ),
-          _Divider(),
-          _SettingsItem(
-            icon: Icons.support_agent_rounded,
-            label: 'Bantuan & Layanan IT',
-            onTap: onBantuan,
             isLast: true,
           ),
         ],

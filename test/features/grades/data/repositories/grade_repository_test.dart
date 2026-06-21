@@ -23,7 +23,7 @@ void main() {
   });
 
   test('GradeSummary.empty has predikat dash', () {
-    expect(GradeSummary.empty.predikat, '-');
-    expect(GradeSummary.empty.overallAverage, 0);
+    expect(GradeSummary.empty.predikat, '–');
+    expect(GradeSummary.empty.overallAverage, isNull);
   });
 }

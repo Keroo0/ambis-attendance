@@ -15,6 +15,34 @@ const Uuid _uuid = Uuid();
 
 enum AttendanceKind { checkIn, checkOut }
 
+Map<String, dynamic> buildFaceRecognitionLogPayload({
+  required String studentId,
+  String? attendanceId,
+  String attemptType = 'genuine',
+  String source = 'attendance',
+  double? score,
+  required double threshold,
+  required bool passed,
+  required bool livenessVerified,
+  String? failureReason,
+  int? durationMs,
+  int? nowMs,
+}) {
+  return {
+    'student_id': studentId,
+    'attendance_id': attendanceId,
+    'attempt_type': attemptType,
+    'source': source,
+    'face_match_score': score,
+    'threshold': threshold,
+    'passed': passed,
+    'liveness_verified': livenessVerified,
+    'failure_reason': failureReason,
+    'duration_ms': durationMs,
+    'created_at': nowMs ?? DateTime.now().millisecondsSinceEpoch,
+  };
+}
+
 class AttendanceRepository {
   AttendanceRepository(this._supabase, this._faceRepo);
 
@@ -72,6 +100,8 @@ class AttendanceRepository {
     Position? position,
     String? deviceId,
   }) async {
+    final stopwatch = Stopwatch()..start();
+
     // 1. Compare face embeddings.
     final stored = await _faceRepo.getEmbedding(studentId);
     if (stored == null) {
@@ -82,6 +112,18 @@ class AttendanceRepository {
     final score = FaceRepository.cosineSimilarity(capturedEmbedding, stored);
     final threshold = await readFaceThreshold();
     if (score < threshold) {
+      stopwatch.stop();
+      await _insertFaceRecognitionLog(
+        buildFaceRecognitionLogPayload(
+          studentId: studentId,
+          score: score,
+          threshold: threshold,
+          passed: false,
+          livenessVerified: true,
+          failureReason: 'face_mismatch',
+          durationMs: stopwatch.elapsedMilliseconds,
+        ),
+      );
       throw FaceMismatchException(
         'Wajah tidak cocok (skor ${score.toStringAsFixed(2)}). '
         'Coba lagi dengan pencahayaan lebih baik.',
@@ -132,13 +174,31 @@ class AttendanceRepository {
     };
 
     // 5. Upsert to Supabase.
-    final result = await _supabase
-        .from('attendance')
-        .upsert(payload)
-        .select()
-        .single();
+    final result =
+        await _supabase.from('attendance').upsert(payload).select().single();
+
+    stopwatch.stop();
+    await _insertFaceRecognitionLog(
+      buildFaceRecognitionLogPayload(
+        studentId: studentId,
+        attendanceId: result['id'] as String?,
+        score: score,
+        threshold: threshold,
+        passed: true,
+        livenessVerified: true,
+        durationMs: stopwatch.elapsedMilliseconds,
+      ),
+    );
 
     return result;
+  }
+
+  Future<void> _insertFaceRecognitionLog(Map<String, dynamic> payload) async {
+    try {
+      await _supabase.from('face_recognition_logs').insert(payload);
+    } catch (_) {
+      // Accuracy logging must never block attendance.
+    }
   }
 
   /// Returns today's attendance row for the given student, or null.
