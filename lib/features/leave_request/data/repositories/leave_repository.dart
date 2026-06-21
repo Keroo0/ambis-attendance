@@ -21,8 +21,7 @@ class LeaveRepository {
   final sb.SupabaseClient _supabase;
 
   /// Maps UI dropdown value to DB enum ('sakit' or 'izin').
-  static String mapType(String uiType) =>
-      uiType == 'Sakit' ? 'sakit' : 'izin';
+  static String mapType(String uiType) => uiType == 'Sakit' ? 'sakit' : 'izin';
 
   /// Throws [LeaveException] if [file] is not jpg/jpeg.
   static void validateExtension(File file) {
@@ -53,30 +52,32 @@ class LeaveRepository {
           fileOptions: const sb.FileOptions(contentType: 'image/jpeg'),
         );
 
-    final attachmentUrl =
-        _supabase.storage.from(_kBucketName).getPublicUrl(storagePath);
-
     final id = _uuid.v4();
     final now = DateTime.now().millisecondsSinceEpoch;
 
-    final result = await _supabase.from('leave_requests').insert({
-      'id': id,
-      'student_id': studentId,
-      'type': mapType(uiType),
-      'reason': reason.isEmpty ? null : reason,
-      'date_from': _formatDate(dateFrom),
-      'date_to': _formatDate(dateTo),
-      'attachment_url': attachmentUrl,
-      'status': 'pending',
-      'created_at': now,
-      'updated_at': now,
-    }).select().single();
+    final result = await _supabase
+        .from('leave_requests')
+        .insert({
+          'id': id,
+          'student_id': studentId,
+          'type': mapType(uiType),
+          'reason': reason.isEmpty ? null : reason,
+          'date_from': _formatDate(dateFrom),
+          'date_to': _formatDate(dateTo),
+          'attachment_url': storagePath,
+          'status': 'pending',
+          'created_at': now,
+          'updated_at': now,
+        })
+        .select()
+        .single();
 
     return result;
   }
 
   /// Returns all leave requests for [studentId] ordered by created_at desc.
-  Future<List<Map<String, dynamic>>> getLeavesByStudent(String studentId) async {
+  Future<List<Map<String, dynamic>>> getLeavesByStudent(
+      String studentId) async {
     final rows = await _supabase
         .from('leave_requests')
         .select()

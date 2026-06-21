@@ -179,10 +179,17 @@ class AuthRepository {
     final userId = await storage.getUserId();
     if (userId == null) return null;
 
+    final restored = await _restoreSupabaseSession(
+      expectedUserId: userId,
+      role: await storage.getUserRole() ?? '',
+    );
+    if (!restored) return null;
+
     try {
       final profile = await supabase
           .from('users')
-          .select('id, nisn, role, fullname, email, phone, avatar_url, is_active')
+          .select(
+              'id, nisn, role, fullname, email, phone, avatar_url, is_active')
           .eq('id', userId)
           .single();
 
@@ -204,6 +211,46 @@ class AuthRepository {
     } catch (_) {
       // Network unavailable — cannot reconstruct user without local cache.
       return null;
+    }
+  }
+
+  Future<bool> _restoreSupabaseSession({
+    required String expectedUserId,
+    required String role,
+  }) async {
+    final currentSession = supabase.auth.currentSession;
+    if (currentSession != null && !currentSession.isExpired) {
+      return currentSession.user.id == expectedUserId;
+    }
+
+    final refreshToken = await storage.getRefreshToken();
+    if (refreshToken == null || refreshToken.isEmpty) {
+      await storage.clear();
+      return false;
+    }
+
+    final accessToken = await storage.getAuthToken();
+    try {
+      final response = await supabase.auth.setSession(
+        refreshToken,
+        accessToken: accessToken?.isEmpty == true ? null : accessToken,
+      );
+      final session = response.session;
+      if (session == null || session.user.id != expectedUserId) {
+        await storage.clear();
+        return false;
+      }
+
+      await storage.saveSession(
+        accessToken: session.accessToken,
+        refreshToken: session.refreshToken ?? refreshToken,
+        userId: session.user.id,
+        role: role,
+      );
+      return true;
+    } catch (_) {
+      await storage.clear();
+      return false;
     }
   }
 }

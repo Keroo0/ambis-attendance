@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../notifications/data/models/notification_model.dart';
@@ -10,10 +11,88 @@ import '../../data/repositories/parent_repository.dart';
 import '../providers/parent_provider.dart';
 import '../widgets/parent_bottom_nav.dart';
 
-class ParentDashboardScreen extends ConsumerWidget {
+final parentNotificationsRealtimeProvider =
+    Provider<ParentNotificationsRealtime>((ref) {
+  return const ParentNotificationsRealtime();
+});
+
+class ParentNotificationsRealtime {
+  const ParentNotificationsRealtime();
+
+  ParentNotificationsSubscription subscribe({
+    required String userId,
+    required VoidCallback onChange,
+  }) {
+    final client = Supabase.instance.client;
+    final channel = client
+        .channel('parent-notifications:$userId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'notifications',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'user_id',
+            value: userId,
+          ),
+          callback: (_) => onChange(),
+        )
+        .subscribe();
+
+    return ParentNotificationsSubscription(() {
+      client.removeChannel(channel);
+    });
+  }
+}
+
+class ParentNotificationsSubscription {
+  const ParentNotificationsSubscription(this._cancel);
+
+  final VoidCallback _cancel;
+
+  void cancel() => _cancel();
+}
+
+class ParentDashboardScreen extends ConsumerStatefulWidget {
   const ParentDashboardScreen({super.key});
 
-  Future<void> _confirmLogout(BuildContext context, WidgetRef ref) async {
+  @override
+  ConsumerState<ParentDashboardScreen> createState() =>
+      _ParentDashboardScreenState();
+}
+
+class _ParentDashboardScreenState extends ConsumerState<ParentDashboardScreen> {
+  ParentNotificationsSubscription? _notificationsSubscription;
+  String? _subscribedUserId;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _subscribe());
+  }
+
+  void _subscribe() {
+    final user = ref.read(authProvider).valueOrNull;
+    if (user == null || user.id == _subscribedUserId) return;
+
+    _notificationsSubscription?.cancel();
+    _subscribedUserId = user.id;
+    _notificationsSubscription =
+        ref.read(parentNotificationsRealtimeProvider).subscribe(
+              userId: user.id,
+              onChange: () {
+                if (mounted) ref.invalidate(notificationsProvider);
+              },
+            );
+  }
+
+  @override
+  void dispose() {
+    _notificationsSubscription?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _confirmLogout(BuildContext context) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -40,8 +119,12 @@ class ParentDashboardScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final childAsync = ref.watch(childInfoProvider);
+    final user = ref.watch(authProvider).valueOrNull;
+    if (user != null && user.id != _subscribedUserId) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _subscribe());
+    }
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F9FB),
@@ -79,7 +162,7 @@ class ParentDashboardScreen extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.logout_rounded, color: Color(0xFF747780)),
             tooltip: 'Keluar',
-            onPressed: () => _confirmLogout(context, ref),
+            onPressed: () => _confirmLogout(context),
           ),
           const SizedBox(width: 4),
         ],

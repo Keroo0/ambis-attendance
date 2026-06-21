@@ -4,6 +4,7 @@ import 'package:ambis_attendance/features/grades/data/repositories/grade_reposit
 import 'package:ambis_attendance/features/notifications/data/models/notification_model.dart';
 import 'package:ambis_attendance/features/notifications/presentation/providers/notifications_provider.dart';
 import 'package:ambis_attendance/features/parent/data/repositories/parent_repository.dart';
+import 'package:ambis_attendance/features/parent/presentation/screens/parent_dashboard_screen.dart';
 import 'package:ambis_attendance/features/parent/presentation/providers/parent_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -89,6 +90,9 @@ List<Override> _parentOverrides() {
         ),
       ),
     ),
+    parentNotificationsRealtimeProvider.overrideWith(
+      (ref) => const _NoopParentNotificationsRealtime(),
+    ),
     notificationsProvider.overrideWith(
       () => _FakeNotificationsNotifier([
         AppNotification(
@@ -137,6 +141,20 @@ class _FakeNotificationsNotifier extends NotificationsNotifier {
   @override
   Future<List<AppNotification>> build() async => _notifications;
 }
+
+class _NoopParentNotificationsRealtime extends ParentNotificationsRealtime {
+  const _NoopParentNotificationsRealtime();
+
+  @override
+  ParentNotificationsSubscription subscribe({
+    required String userId,
+    required VoidCallback onChange,
+  }) {
+    return const ParentNotificationsSubscription(_noop);
+  }
+}
+
+void _noop() {}
 
 const _parentUser = UserEntity(
   id: 'parent-1',
