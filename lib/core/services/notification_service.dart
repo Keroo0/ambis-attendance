@@ -21,6 +21,8 @@ class NotificationService {
 
   /// Inisialisasi plugin. Dipanggil dari main() setelah WidgetsFlutterBinding.
   Future<void> initialize() async {
+    if (kIsWeb) return;
+
     const androidSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');
     const darwinSettings = DarwinInitializationSettings(
@@ -39,6 +41,8 @@ class NotificationService {
 
   /// Minta izin notifikasi dari OS. Aman dipanggil berulang kali.
   Future<void> requestPermission() async {
+    if (kIsWeb) return;
+
     final android = _plugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
     final ios = _plugin.resolvePlatformSpecificImplementation<
@@ -51,9 +55,18 @@ class NotificationService {
     }
   }
 
+  /// Siapkan notifikasi sistem lalu jadwalkan reminder absen masuk.
+  Future<void> startCheckInReminder({String? studentId}) async {
+    await initialize();
+    await requestPermission();
+    await scheduleCheckInReminder(studentId: studentId);
+  }
+
   /// Jadwalkan notifikasi harian 15 menit sebelum deadline check-in.
   /// Jika [studentId] diberikan dan siswa sudah absen hari ini, tidak dijadwalkan.
   Future<void> scheduleCheckInReminder({String? studentId}) async {
+    if (kIsWeb) return;
+
     await cancelReminder();
 
     if (studentId != null) {
@@ -152,6 +165,8 @@ class NotificationService {
 
   /// Batalkan reminder yang sedang terjadwal.
   Future<void> cancelReminder() async {
+    if (kIsWeb) return;
+
     await _plugin.cancel(_kCheckInReminderId);
   }
 
